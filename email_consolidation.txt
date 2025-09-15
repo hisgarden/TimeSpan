@@ -1,6 +1,0 @@
-Email Address Consolidation Complete
-
-All commit history now uses consistent email: jin.wen@hisgarden.org
-- Replaced all onespan.com references
-- Maintained GPG signatures on tags
-- Professional, consistent authorship throughout history
