@@ -1,2 +1,0 @@
-Testing GPG commit signing
-This file will be used to test verified commits.
