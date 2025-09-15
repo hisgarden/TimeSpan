@@ -1,9 +1,13 @@
+pub mod client_discovery;
+
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
 use crate::models::{Project, TimeEntry, Timer, TimeReport};
 use crate::repository::Repository;
 use crate::{Result, TimeSpanError};
+
+pub use client_discovery::{ClientDiscoveryService, DiscoveryOptions, DiscoveryResult, ClientDirectory};
 
 pub struct ProjectService {
     repository: Arc<dyn Repository>,

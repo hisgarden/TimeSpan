@@ -7,6 +7,8 @@ pub struct Project {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    pub directory_path: Option<String>,
+    pub is_client_project: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -63,6 +65,25 @@ impl Project {
             id: Uuid::new_v4(),
             name,
             description,
+            directory_path: None,
+            is_client_project: false,
+            created_at: now,
+            updated_at: now,
+        }
+    }
+
+    pub fn new_client_project(
+        name: String,
+        description: Option<String>,
+        directory_path: String,
+    ) -> Self {
+        let now = Utc::now();
+        Self {
+            id: Uuid::new_v4(),
+            name,
+            description,
+            directory_path: Some(directory_path),
+            is_client_project: true,
             created_at: now,
             updated_at: now,
         }

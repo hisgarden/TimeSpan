@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::repository::SqliteRepository;
-use crate::services::{ProjectService, TimeTrackingService, ReportingService};
-use crate::{Result, TimeSpanError};
+use crate::services::{ProjectService, TimeTrackingService, ReportingService, ClientDiscoveryService, DiscoveryOptions};
+use crate::Result;
 
 #[derive(Parser)]
 #[command(name = "timespan")]
@@ -48,6 +48,20 @@ pub enum ProjectCommands {
         description: Option<String>,
     },
     List,
+    /// Discover projects from client directories
+    Discover {
+        /// Base path to scan for client directories
+        #[arg(long, default_value = "/Users/jwen/workspace/Clients")]
+        path: String,
+        /// Prefix to add to discovered project names
+        #[arg(long, default_value = "[CLIENT]")] 
+        prefix: String,
+        /// Preview mode - show what would be created without actually creating
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// List only client projects
+    Clients,
 }
 
 #[derive(Subcommand)]
@@ -62,6 +76,7 @@ pub struct TimeSpanApp {
     project_service: ProjectService,
     tracking_service: TimeTrackingService,
     reporting_service: ReportingService,
+    client_discovery_service: ClientDiscoveryService,
 }
 
 impl TimeSpanApp {
@@ -77,7 +92,8 @@ impl TimeSpanApp {
         Ok(Self {
             project_service: ProjectService::new(repository.clone()),
             tracking_service: TimeTrackingService::new(repository.clone()),
-            reporting_service: ReportingService::new(repository),
+            reporting_service: ReportingService::new(repository.clone()),
+            client_discovery_service: ClientDiscoveryService::new(repository),
         })
     }
     
@@ -147,10 +163,21 @@ impl TimeSpanApp {
                 } else {
                     println!("Projects:");
                     for project in projects {
-                        println!("  - {}", project.name);
+                        let client_marker = if project.is_client_project { " 🏢" } else { "" };
+                        let path_info = project.directory_path
+                            .as_deref()
+                            .map(|p| format!(" ({})", p))
+                            .unwrap_or_default();
+                        println!("  - {}{}{}", project.name, client_marker, path_info);
                     }
                 }
                 Ok(())
+            }
+            ProjectCommands::Discover { path, prefix, dry_run } => {
+                self.handle_project_discover(path, prefix, dry_run).await
+            }
+            ProjectCommands::Clients => {
+                self.handle_list_client_projects().await
             }
         }
     }
@@ -169,6 +196,119 @@ impl TimeSpanApp {
                     println!("Daily Report: Total time {}h {}m", total_hours, total_minutes);
                 }
                 Ok(())
+            }
+        }
+    }
+    
+    async fn handle_project_discover(&self, path: String, prefix: String, dry_run: bool) -> Result<()> {
+        use std::path::PathBuf;
+        
+        let options = DiscoveryOptions {
+            base_path: PathBuf::from(path.clone()),
+            exclude_patterns: DiscoveryOptions::default().exclude_patterns,
+            project_prefix: if prefix.is_empty() { None } else { Some(prefix) },
+            dry_run,
+        };
+        
+        println!("🔍 Discovering client projects in: {}", path);
+        if dry_run {
+            println!("👀 Running in preview mode - no projects will be created");
+        }
+        println!();
+        
+        match self.client_discovery_service.discover_clients(&options).await {
+            Ok(result) => {
+                // Show discovered directories
+                if !result.discovered_directories.is_empty() {
+                    println!("📁 Discovered {} directories:", result.discovered_directories.len());
+                    for dir in &result.discovered_directories {
+                        let git_marker = if dir.is_git_repo { " 🔄" } else { "" };
+                        println!("  • {}{}", dir.name, git_marker);
+                        if let Some(desc) = &dir.suggested_description {
+                            println!("    {}", desc);
+                        }
+                    }
+                    println!();
+                }
+                
+                // Show results
+                if !result.created_projects.is_empty() {
+                    println!("✅ Created {} new projects:", result.created_projects.len());
+                    for project in &result.created_projects {
+                        println!("  + {}", project.name);
+                    }
+                    println!();
+                }
+                
+                if !result.updated_projects.is_empty() {
+                    println!("🔄 Updated {} existing projects:", result.updated_projects.len());
+                    for project in &result.updated_projects {
+                        println!("  ~ {}", project.name);
+                    }
+                    println!();
+                }
+                
+                if !result.skipped_directories.is_empty() {
+                    println!("⏭️ Skipped {} directories:", result.skipped_directories.len());
+                    for skipped in &result.skipped_directories {
+                        println!("  - {}", skipped);
+                    }
+                    println!();
+                }
+                
+                if !result.errors.is_empty() {
+                    println!("❌ Errors encountered:");
+                    for error in &result.errors {
+                        println!("  ! {}", error);
+                    }
+                    println!();
+                }
+                
+                // Summary
+                if dry_run {
+                    println!("👁️ Preview completed. Use without --dry-run to create projects.");
+                } else {
+                    let total = result.created_projects.len() + result.updated_projects.len();
+                    if total > 0 {
+                        println!("🎉 Successfully processed {} project(s)!", total);
+                    } else {
+                        println!("✨ No new projects to create - everything is up to date!");
+                    }
+                }
+                
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("❌ Discovery failed: {}", e);
+                Err(e)
+            }
+        }
+    }
+    
+    async fn handle_list_client_projects(&self) -> Result<()> {
+        match self.client_discovery_service.list_client_projects().await {
+            Ok(projects) => {
+                if projects.is_empty() {
+                    println!("🏢 No client projects found.");
+                    println!("💡 Use 'timespan project discover' to scan for client directories.");
+                } else {
+                    println!("🏢 Client Projects ({}):", projects.len());
+                    for project in projects {
+                        let path_info = project.directory_path
+                            .as_deref()
+                            .map(|p| format!(" → {}", p))
+                            .unwrap_or_default();
+                        println!("  • {}{}", project.name, path_info);
+                        if let Some(desc) = &project.description {
+                            println!("    {}", desc);
+                        }
+                    }
+                }
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("❌ Failed to list client projects: {}", e);
+                Err(e)
             }
         }
     }

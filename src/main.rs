@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
     let app = TimeSpanApp::new(cli.database.clone())?;
     
-    if let Err(e) = app.run(cli).await {
+    if let Err(_e) = app.run(cli).await {
         std::process::exit(1);
     }
     

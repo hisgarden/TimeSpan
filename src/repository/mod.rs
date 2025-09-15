@@ -68,6 +68,8 @@ impl SqliteRepository {
                 id TEXT PRIMARY KEY,
                 name TEXT UNIQUE NOT NULL,
                 description TEXT,
+                directory_path TEXT,
+                is_client_project BOOLEAN DEFAULT FALSE,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )
@@ -108,6 +110,35 @@ impl SqliteRepository {
             [],
         )?;
 
+        self.migrate_database_schema(&conn)?;
+
+        Ok(())
+    }
+
+    fn migrate_database_schema(&self, conn: &Connection) -> Result<()> {
+        // Check if we need to add the new columns to existing projects table
+        let has_directory_path = conn
+            .prepare("SELECT directory_path FROM projects LIMIT 1")
+            .is_ok();
+
+        let has_is_client_project = conn
+            .prepare("SELECT is_client_project FROM projects LIMIT 1")
+            .is_ok();
+
+        if !has_directory_path {
+            conn.execute(
+                "ALTER TABLE projects ADD COLUMN directory_path TEXT",
+                [],
+            )?;
+        }
+
+        if !has_is_client_project {
+            conn.execute(
+                "ALTER TABLE projects ADD COLUMN is_client_project BOOLEAN DEFAULT FALSE",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -116,6 +147,8 @@ impl SqliteRepository {
             id: Uuid::parse_str(&row.get::<_, String>("id")?).unwrap(),
             name: row.get("name")?,
             description: row.get("description")?,
+            directory_path: row.get("directory_path")?,
+            is_client_project: row.get::<_, Option<bool>>("is_client_project")?.unwrap_or(false),
             created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
                 .unwrap()
                 .with_timezone(&Utc),
@@ -190,11 +223,13 @@ impl Repository for SqliteRepository {
         let conn = self.connection.lock().unwrap();
         
         let result = conn.execute(
-            "INSERT INTO projects (id, name, description, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO projects (id, name, description, directory_path, is_client_project, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 project.id.to_string(),
                 project.name,
                 project.description,
+                project.directory_path,
+                project.is_client_project,
                 project.created_at.to_rfc3339(),
                 project.updated_at.to_rfc3339(),
             ],
@@ -216,7 +251,7 @@ impl Repository for SqliteRepository {
     async fn get_project_by_name(&self, name: &str) -> Result<Option<Project>> {
         let conn = self.connection.lock().unwrap();
         
-        let mut stmt = conn.prepare("SELECT id, name, description, created_at, updated_at FROM projects WHERE name = ?1")?;
+        let mut stmt = conn.prepare("SELECT id, name, description, directory_path, is_client_project, created_at, updated_at FROM projects WHERE name = ?1")?;
         let mut rows = stmt.query_map(params![name], Self::project_from_row)?;
         
         if let Some(row) = rows.next() {
@@ -229,7 +264,7 @@ impl Repository for SqliteRepository {
     async fn get_project_by_id(&self, id: Uuid) -> Result<Option<Project>> {
         let conn = self.connection.lock().unwrap();
         
-        let mut stmt = conn.prepare("SELECT id, name, description, created_at, updated_at FROM projects WHERE id = ?1")?;
+        let mut stmt = conn.prepare("SELECT id, name, description, directory_path, is_client_project, created_at, updated_at FROM projects WHERE id = ?1")?;
         let mut rows = stmt.query_map(params![id.to_string()], Self::project_from_row)?;
         
         if let Some(row) = rows.next() {
@@ -242,7 +277,7 @@ impl Repository for SqliteRepository {
     async fn list_projects(&self) -> Result<Vec<Project>> {
         let conn = self.connection.lock().unwrap();
         
-        let mut stmt = conn.prepare("SELECT id, name, description, created_at, updated_at FROM projects ORDER BY name")?;
+        let mut stmt = conn.prepare("SELECT id, name, description, directory_path, is_client_project, created_at, updated_at FROM projects ORDER BY name")?;
         let project_iter = stmt.query_map([], Self::project_from_row)?;
         
         let mut projects = Vec::new();
@@ -257,11 +292,13 @@ impl Repository for SqliteRepository {
         let conn = self.connection.lock().unwrap();
         
         conn.execute(
-            "UPDATE projects SET name = ?2, description = ?3, updated_at = ?4 WHERE id = ?1",
+            "UPDATE projects SET name = ?2, description = ?3, directory_path = ?4, is_client_project = ?5, updated_at = ?6 WHERE id = ?1",
             params![
                 project.id.to_string(),
                 project.name,
                 project.description,
+                project.directory_path,
+                project.is_client_project,
                 project.updated_at.to_rfc3339(),
             ],
         )?;
