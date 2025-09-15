@@ -9,7 +9,7 @@ use crate::Result;
 #[derive(Parser)]
 #[command(name = "timespan")]
 #[command(about = "A local time tracking application")]
-#[command(version = "1.0")]
+#[command(version = "1.1.0")]
 pub struct Cli {
     #[arg(long, global = true)]
     pub database: Option<PathBuf>,
