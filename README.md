@@ -31,26 +31,42 @@ TimeSpan is a powerful, privacy-first time tracking application designed for dev
 
 ## 📥 Installation
 
-### Homebrew (Recommended)
+### ⚡ One-Line Install (Recommended)
+
+**Install TimeSpan + optional Git integration setup:**
 
 ```bash
-# Add the TimeSpan tap
-brew tap hisgarden/timespan
-
-# Install TimeSpan with Git integration
-brew install timespan
+curl -fsSL https://raw.githubusercontent.com/hisgarden/TimeSpan/main/install.sh | bash
 ```
 
-### From Source
+### 🍺 Just Homebrew
+
+**If you prefer just the binary:**
 
 ```bash
-# Clone the repository
+brew tap hisgarden/timespan && brew install timespan
+```
+
+That's it! TimeSpan is ready to use with full Git integration.
+
+<details>
+<summary>🔧 Alternative Installation Methods</summary>
+
+### From Source (for developers)
+
+```bash
+# Clone and install
 git clone https://github.com/hisgarden/TimeSpan.git
 cd TimeSpan
-
-# Install directly with Cargo
 cargo install --path .
 ```
+
+### Manual Download
+
+1. Download the latest release from [GitHub Releases](https://github.com/hisgarden/TimeSpan/releases)
+2. Extract and add to your PATH
+
+</details>
 
 ## 🚀 Quick Start
 
@@ -174,28 +190,43 @@ timespan report daily --json
 timespan report daily --json > today_report.json
 ```
 
-## 🔧 Setup Guide
+## 🔧 Setup the `ts` Magic Command (Optional)
 
-### Setting Up the `ts` Command (Optional)
+Unlock the ultimate developer experience with the `ts` command that combines Git commits + automatic time tracking:
 
-For the ultimate developer experience, set up the `ts` command for one-command commit + time tracking:
+> 💫 **Pro tip:** If you used the one-line installer, this might already be set up for you!
 
-1. **Add to your shell configuration** (`.zshrc`, `.bashrc`, etc.):
+### Manual Setup (30 seconds)
+
+1. **Download the integration script:**
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/hisgarden/TimeSpan/main/.timespan_warp_integration.zsh -o ~/.timespan_warp_integration.zsh
+   ```
+
+2. **Add one line to your shell config** (`.zshrc` or `.bashrc`):
+   ```bash
+   echo 'source ~/.timespan_warp_integration.zsh' >> ~/.zshrc
+   ```
+
+3. **Reload your shell:**
+   ```bash
+   source ~/.zshrc
+   ```
+
+### Now Use Anywhere! ✨
 
 ```bash
-# TimeSpan Warp Integration
-source ~/.timespan_warp_integration.zsh
-```
-
-2. **Create the integration script** (included with installation)
-
-3. **Use anywhere in Git repositories**:
-
-```bash
-cd /path/to/client/project
+cd /any/git/repository
 ts completed user dashboard with real-time updates
-# → Commits to Git + tracks time automatically
+# ✅ Commits to Git + tracks time automatically!
 ```
+
+**What the `ts` command does:**
+- 📝 Commits your changes to Git with your message
+- 🤖 Analyzes commit complexity automatically  
+- ⏱️ Estimates realistic time based on changes
+- 🏢 Detects client projects automatically
+- 📊 Logs time entry to TimeSpan database
 
 ## 📊 Understanding Reports
 
