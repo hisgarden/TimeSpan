@@ -1,4 +1,5 @@
 pub mod client_discovery;
+pub mod git_service;
 
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
@@ -8,6 +9,7 @@ use crate::repository::Repository;
 use crate::{Result, TimeSpanError};
 
 pub use client_discovery::{ClientDiscoveryService, DiscoveryOptions, DiscoveryResult, ClientDirectory};
+pub use git_service::GitService;
 
 pub struct ProjectService {
     repository: Arc<dyn Repository>,

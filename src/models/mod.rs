@@ -1,5 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -414,5 +415,123 @@ mod tests {
         assert_eq!(report.project_summaries.len(), 2);
         assert_eq!(report.date_range.start, start_time);
         assert_eq!(report.date_range.end, end_time);
+    }
+}
+
+// Git Integration Models
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitCommit {
+    pub hash: String,
+    pub message: String,
+    pub author: String,
+    pub author_email: String,
+    pub timestamp: DateTime<Utc>,
+    pub files_changed: Vec<String>,
+    pub insertions: u32,
+    pub deletions: u32,
+    pub repository_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct GitTimeEntry {
+    pub id: Uuid,
+    pub commit_hash: String,
+    pub project_id: Uuid,
+    pub project_name: String,
+    pub estimated_time: Duration,
+    pub actual_time: Option<Duration>,
+    pub confidence_score: f32,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommitAnalysis {
+    pub commit: GitCommit,
+    pub complexity_score: f32,
+    pub file_type_weights: std::collections::HashMap<String, f32>,
+    pub commit_type: CommitType,
+    pub estimated_duration: Duration,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum CommitType {
+    Feature,
+    BugFix,
+    Refactor,
+    Documentation,
+    Test,
+    Chore,
+    Other,
+}
+
+impl GitCommit {
+    pub fn new(
+        hash: String,
+        message: String,
+        author: String,
+        author_email: String,
+        timestamp: DateTime<Utc>,
+        repository_path: PathBuf,
+    ) -> Self {
+        Self {
+            hash,
+            message,
+            author,
+            author_email,
+            timestamp,
+            files_changed: Vec::new(),
+            insertions: 0,
+            deletions: 0,
+            repository_path,
+        }
+    }
+
+    pub fn total_changes(&self) -> u32 {
+        self.insertions + self.deletions
+    }
+
+    pub fn detect_commit_type(&self) -> CommitType {
+        let msg = self.message.to_lowercase();
+        
+        if msg.starts_with("feat") || msg.contains("feature") || msg.contains("add") {
+            CommitType::Feature
+        } else if msg.starts_with("fix") || msg.contains("bug") || msg.contains("error") {
+            CommitType::BugFix
+        } else if msg.starts_with("refactor") || msg.contains("refactor") {
+            CommitType::Refactor
+        } else if msg.starts_with("docs") || msg.contains("documentation") {
+            CommitType::Documentation
+        } else if msg.starts_with("test") || msg.contains("test") {
+            CommitType::Test
+        } else if msg.starts_with("chore") || msg.contains("chore") {
+            CommitType::Chore
+        } else {
+            CommitType::Other
+        }
+    }
+}
+
+impl GitTimeEntry {
+    pub fn new(
+        commit_hash: String,
+        project_id: Uuid,
+        project_name: String,
+        estimated_time: Duration,
+        confidence_score: f32,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            commit_hash,
+            project_id,
+            project_name,
+            estimated_time,
+            actual_time: None,
+            confidence_score,
+            created_at: Utc::now(),
+        }
+    }
+
+    pub fn set_actual_time(&mut self, actual_time: Duration) {
+        self.actual_time = Some(actual_time);
     }
 }

@@ -1,0 +1,37 @@
+# Alternative formula using pre-built binaries (faster install)
+class TimespanBinary < Formula
+  desc "Local time tracking application built with Rust"
+  homepage "https://github.com/hisgarden/TimeSpan"
+  license "MIT"
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "https://github.com/hisgarden/TimeSpan/releases/download/v1.0.3/timespan-macos-arm64.tar.gz"
+      sha256 "HASH_FOR_ARM64_BINARY"
+    else
+      url "https://github.com/hisgarden/TimeSpan/releases/download/v1.0.3/timespan-macos-x86_64.tar.gz"
+      sha256 "HASH_FOR_X86_64_BINARY"
+    end
+  end
+
+  on_linux do
+    if Hardware::CPU.arm?
+      url "https://github.com/hisgarden/TimeSpan/releases/download/v1.0.3/timespan-linux-arm64.tar.gz"
+      sha256 "HASH_FOR_LINUX_ARM64"
+    else
+      url "https://github.com/hisgarden/TimeSpan/releases/download/v1.0.3/timespan-linux-x86_64.tar.gz"
+      sha256 "HASH_FOR_LINUX_X86_64"
+    end
+  end
+
+  def install
+    bin.install "timespan"
+  end
+
+  test do
+    assert_match "local time tracking application", shell_output("#{bin}/timespan --help")
+    system "#{bin}/timespan", "--database", "#{testpath}/test.db", "project", "create", "Test Project"
+    assert_match "Test Project", shell_output("#{bin}/timespan --database #{testpath}/test.db project list")
+    assert_match "No active timer", shell_output("#{bin}/timespan --database #{testpath}/test.db status")
+  end
+end
