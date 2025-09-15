@@ -21,7 +21,7 @@ A local time tracking application built with Rust using Test-Driven Development 
 
 ```bash
 # Add the tap
-brew tap jwen/timespan
+brew tap hisgarden/timespan
 
 # Install TimeSpan
 brew install timespan
@@ -31,7 +31,7 @@ brew install timespan
 
 ```bash
 # Clone the repository
-git clone https://github.com/jwen/TimeSpan.git
+git clone https://github.com/hisgarden/TimeSpan.git
 cd TimeSpan
 
 # Build the project

@@ -5,7 +5,7 @@ This guide outlines the process for releasing TimeSpan and updating the Homebrew
 ## Prerequisites
 
 1. Ensure you have a GitHub repository set up for TimeSpan
-2. Homebrew tap created (`jwen/homebrew-timespan`)
+2. Homebrew tap created (`hisgarden/homebrew-timespan`)
 3. Local development environment with Rust and Homebrew
 
 ## Release Process
@@ -33,7 +33,7 @@ git tag v1.0.3
 git push origin v1.0.3
 
 # Create a GitHub release at:
-# https://github.com/jwen/TimeSpan/releases/new
+# https://github.com/hisgarden/TimeSpan/releases/new
 # - Use tag v1.0.3
 # - Upload the release archive
 ```
@@ -57,11 +57,11 @@ Use the release script to automatically calculate SHA256 and update the formula:
 
 ```bash
 # Test locally first
-brew audit jwen/timespan/timespan
+brew audit hisgarden/timespan/timespan
 
 # Test installation (if you have a test environment)
 brew uninstall timespan 2>/dev/null || true
-brew install jwen/timespan/timespan
+brew install hisgarden/timespan/timespan
 
 # Test functionality
 timespan --help
@@ -78,7 +78,7 @@ git commit -m "Update Homebrew formula for v1.0.3"
 git push origin main
 
 # Update the tap repository
-cd /opt/homebrew/Library/Taps/jwen/homebrew-timespan
+cd /opt/homebrew/Library/Taps/hisgarden/homebrew-timespan
 git add Formula/timespan.rb
 git commit -m "Update TimeSpan to v1.0.3"
 git push origin main
@@ -102,7 +102,7 @@ The Homebrew formula (`Formula/timespan.rb`) contains:
 
 ```bash
 # Check what's wrong
-brew audit jwen/timespan/timespan
+brew audit hisgarden/timespan/timespan
 
 # Common issues:
 # - Empty SHA256 hash
@@ -115,10 +115,10 @@ brew audit jwen/timespan/timespan
 
 ```bash
 # Install with verbose output
-brew install -v jwen/timespan/timespan
+brew install -v hisgarden/timespan/timespan
 
 # Check build logs
-brew gist-logs jwen/timespan/timespan
+brew gist-logs hisgarden/timespan/timespan
 ```
 
 ### SHA256 Mismatch
@@ -134,7 +134,7 @@ Once released, users can install TimeSpan with:
 
 ```bash
 # Add the tap (first time only)
-brew tap jwen/timespan
+brew tap hisgarden/timespan
 
 # Install or update TimeSpan
 brew install timespan

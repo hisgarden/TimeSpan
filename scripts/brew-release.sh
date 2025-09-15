@@ -5,7 +5,7 @@
 set -e
 
 VERSION=${1:-"v1.0.2"}
-REPO_URL="https://github.com/jwen/TimeSpan"
+REPO_URL="https://github.com/hisgarden/TimeSpan"
 
 echo "🚀 Preparing Homebrew release for TimeSpan $VERSION"
 

@@ -1,6 +1,6 @@
 class TimespanLocal < Formula
   desc "A local time tracking application built with Rust"
-  homepage "https://github.com/jwen/TimeSpan"
+  homepage "https://github.com/hisgarden/TimeSpan"
   url "file:///Users/jwen/workspace/ml/TimeSpan"
   version "0.1.0"
   license "MIT"
