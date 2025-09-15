@@ -1,0 +1,2 @@
+Testing git integration with ts command
+This demonstrates automatic time tracking via git commits.
