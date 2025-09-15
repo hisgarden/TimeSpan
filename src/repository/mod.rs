@@ -5,7 +5,7 @@ use std::path::Path;
 use uuid::Uuid;
 
 use crate::models::{Project, TimeEntry, Timer};
-use crate::{Result, TogglError};
+use crate::{Result, TimeSpanError};
 
 #[async_trait]
 pub trait Repository: Send + Sync {
@@ -204,12 +204,12 @@ impl Repository for SqliteRepository {
             Ok(_) => Ok(()),
             Err(rusqlite::Error::SqliteFailure(err, _)) => {
                 if err.code == rusqlite::ErrorCode::ConstraintViolation {
-                    Err(TogglError::ProjectAlreadyExists(project.name.clone()))
+                    Err(TimeSpanError::ProjectAlreadyExists(project.name.clone()))
                 } else {
-                    Err(TogglError::Database(rusqlite::Error::SqliteFailure(err, None)))
+                    Err(TimeSpanError::Database(rusqlite::Error::SqliteFailure(err, None)))
                 }
             }
-            Err(e) => Err(TogglError::Database(e)),
+            Err(e) => Err(TimeSpanError::Database(e)),
         }
     }
 
@@ -280,7 +280,7 @@ impl Repository for SqliteRepository {
         let count: i64 = stmt.query_row(params![id.to_string()], |row| row.get(0))?;
         
         if count > 0 {
-            return Err(TogglError::ProjectHasTimeEntries(project_name));
+            return Err(TimeSpanError::ProjectHasTimeEntries(project_name));
         }
         
         conn.execute("DELETE FROM projects WHERE id = ?1", params![id.to_string()])?;
@@ -549,7 +549,7 @@ mod tests {
         
         let result = repo.create_project(&project2).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), TogglError::ProjectAlreadyExists(_)));
+        assert!(matches!(result.unwrap_err(), TimeSpanError::ProjectAlreadyExists(_)));
     }
 
     #[tokio::test]
@@ -610,7 +610,7 @@ mod tests {
         
         let result = repo.delete_project(project.id).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), TogglError::ProjectHasTimeEntries(_)));
+        assert!(matches!(result.unwrap_err(), TimeSpanError::ProjectHasTimeEntries(_)));
     }
 
     #[tokio::test]

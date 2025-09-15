@@ -4,7 +4,7 @@ Feature: Time Reporting
   So that I can analyze my productivity and create invoices
 
   Background:
-    Given a clean toggl database
+  Given a clean timespan database
     And I have a project called "Project A"
     And I have a project called "Project B"
 

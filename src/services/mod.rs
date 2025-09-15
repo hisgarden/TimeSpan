@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 
 use crate::models::{Project, TimeEntry, Timer, TimeReport};
 use crate::repository::Repository;
-use crate::{Result, TogglError};
+use crate::{Result, TimeSpanError};
 
 pub struct ProjectService {
     repository: Arc<dyn Repository>,
@@ -16,7 +16,7 @@ impl ProjectService {
 
     pub async fn create_project(&self, name: &str, description: Option<&str>) -> Result<Project> {
         if let Some(_) = self.repository.get_project_by_name(name).await? {
-            return Err(TogglError::ProjectAlreadyExists(name.to_string()));
+            return Err(TimeSpanError::ProjectAlreadyExists(name.to_string()));
         }
 
         let project = Project::new(name.to_string(), description.map(|s| s.to_string()));
@@ -36,7 +36,7 @@ impl ProjectService {
         let mut project = self.repository
             .get_project_by_name(name)
             .await?
-            .ok_or_else(|| TogglError::ProjectNotFound(name.to_string()))?;
+            .ok_or_else(|| TimeSpanError::ProjectNotFound(name.to_string()))?;
 
         project.update_description(new_description);
         self.repository.update_project(&project).await
@@ -46,7 +46,7 @@ impl ProjectService {
         let project = self.repository
             .get_project_by_name(name)
             .await?
-            .ok_or_else(|| TogglError::ProjectNotFound(name.to_string()))?;
+            .ok_or_else(|| TimeSpanError::ProjectNotFound(name.to_string()))?;
 
         self.repository.delete_project(project.id).await
     }
@@ -64,14 +64,14 @@ impl TimeTrackingService {
     pub async fn start_timer(&self, project_name: &str, task_description: Option<&str>) -> Result<Timer> {
         // Check if there's already an active timer
         if let Some(active) = self.repository.get_active_timer().await? {
-            return Err(TogglError::TimerAlreadyRunning(active.project_name));
+            return Err(TimeSpanError::TimerAlreadyRunning(active.project_name));
         }
 
         // Get project
         let project = self.repository
             .get_project_by_name(project_name)
             .await?
-            .ok_or_else(|| TogglError::ProjectNotFound(project_name.to_string()))?;
+            .ok_or_else(|| TimeSpanError::ProjectNotFound(project_name.to_string()))?;
 
         let timer = Timer::new(
             project.id,
@@ -90,7 +90,7 @@ impl TimeTrackingService {
         let timer = self.repository
             .get_active_timer()
             .await?
-            .ok_or(TogglError::NoActiveTimer)?;
+            .ok_or(TimeSpanError::NoActiveTimer)?;
 
         let end_time = Utc::now();
         
@@ -145,7 +145,7 @@ impl TimeTrackingService {
         let mut timer = self.repository
             .get_active_timer()
             .await?
-            .ok_or(TogglError::NoActiveTimer)?;
+            .ok_or(TimeSpanError::NoActiveTimer)?;
             
         timer.add_tag(tag);
         self.repository.save_active_timer(&timer).await
@@ -201,7 +201,7 @@ impl ReportingService {
         let project = self.repository
             .get_project_by_name(project_name)
             .await?
-            .ok_or_else(|| TogglError::ProjectNotFound(project_name.to_string()))?;
+            .ok_or_else(|| TimeSpanError::ProjectNotFound(project_name.to_string()))?;
         
         let entries = self.repository
             .list_time_entries_by_project(project.id)
@@ -216,7 +216,7 @@ impl ReportingService {
     
     pub fn export_report_json(&self, report: &TimeReport) -> Result<String> {
         serde_json::to_string_pretty(report).map_err(|e| {
-            TogglError::InvalidDuration(format!("Failed to serialize report: {}", e))
+            TimeSpanError::InvalidDuration(format!("Failed to serialize report: {}", e))
         })
     }
 }
@@ -263,7 +263,7 @@ mod tests {
             .await;
         
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), TogglError::ProjectAlreadyExists(_)));
+        assert!(matches!(result.unwrap_err(), TimeSpanError::ProjectAlreadyExists(_)));
     }
 
     #[tokio::test]
@@ -317,7 +317,7 @@ mod tests {
             .await;
         
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), TogglError::TimerAlreadyRunning(_)));
+        assert!(matches!(result.unwrap_err(), TimeSpanError::TimerAlreadyRunning(_)));
     }
 
     #[tokio::test]
@@ -327,7 +327,7 @@ mod tests {
         let result = tracking_service.stop_timer().await;
         
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), TogglError::NoActiveTimer));
+        assert!(matches!(result.unwrap_err(), TimeSpanError::NoActiveTimer));
     }
 
     #[tokio::test]

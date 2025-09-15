@@ -6,7 +6,7 @@ pub mod cli;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum TogglError {
+pub enum TimeSpanError {
     #[error("Database error: {0}")]
     Database(#[from] rusqlite::Error),
     #[error("Timer is already running for project: {0}")]
@@ -25,4 +25,4 @@ pub enum TogglError {
     Io(#[from] std::io::Error),
 }
 
-pub type Result<T> = std::result::Result<T, TogglError>;
+pub type Result<T> = std::result::Result<T, TimeSpanError>;

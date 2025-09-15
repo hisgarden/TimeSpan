@@ -4,7 +4,7 @@ Feature: Time Tracking
   So that I can monitor my productivity and bill clients accurately
 
   Background:
-    Given a clean toggl database
+  Given a clean timespan database
     And I have a project called "My Project"
 
   Scenario: Start tracking time for a project

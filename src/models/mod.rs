@@ -98,7 +98,7 @@ impl TimeEntry {
 
     pub fn stop(&mut self, end_time: DateTime<Utc>) -> crate::Result<()> {
         if end_time <= self.start_time {
-            return Err(crate::TogglError::InvalidDuration(
+            return Err(crate::TimeSpanError::InvalidDuration(
                 "End time must be after start time".to_string(),
             ));
         }
@@ -286,7 +286,7 @@ mod tests {
         let result = entry.stop(end_time);
         
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), crate::TogglError::InvalidDuration(_)));
+        assert!(matches!(result.unwrap_err(), crate::TimeSpanError::InvalidDuration(_)));
     }
 
     #[test]

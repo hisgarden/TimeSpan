@@ -8,7 +8,7 @@ Cargo.lock
 *.db
 *.sqlite
 *.sqlite3
-toggl.db
+timespan.db
 
 # IDE
 .vscode/

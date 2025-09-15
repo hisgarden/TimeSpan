@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use crate::repository::SqliteRepository;
 use crate::services::{ProjectService, TimeTrackingService, ReportingService};
-use crate::{Result, TogglError};
+use crate::{Result, TimeSpanError};
 
 #[derive(Parser)]
-#[command(name = "toggl")]
+#[command(name = "timespan")]
 #[command(about = "A local time tracking application")]
 #[command(version = "1.0")]
 pub struct Cli {
@@ -58,17 +58,17 @@ pub enum ReportCommands {
     },
 }
 
-pub struct TogglApp {
+pub struct TimeSpanApp {
     project_service: ProjectService,
     tracking_service: TimeTrackingService,
     reporting_service: ReportingService,
 }
 
-impl TogglApp {
+impl TimeSpanApp {
     pub fn new(database_path: Option<PathBuf>) -> Result<Self> {
         let db_path = database_path.unwrap_or_else(|| {
             let mut path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            path.push("toggl.db");
+            path.push("timespan.db");
             path
         });
         

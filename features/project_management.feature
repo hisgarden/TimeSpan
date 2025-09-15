@@ -4,7 +4,7 @@ Feature: Project Management
   So that I can organize my time tracking
 
   Background:
-    Given a clean toggl database
+  Given a clean timespan database
 
   Scenario: Create a new project
     When I create a project called "New Project"

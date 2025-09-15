@@ -1,4 +1,4 @@
-# Toggl Local - Rust Time Tracker
+# TimeSpan - Rust Time Tracker
 
 A local time tracking application built with Rust using Test-Driven Development (TDD) and Behavior-Driven Development (BDD) methodologies.
 
@@ -20,19 +20,19 @@ A local time tracking application built with Rust using Test-Driven Development 
 cargo build --release
 
 # Create a project
-./target/release/toggl project create "My Project"
+./target/release/timespan project create "My Project"
 
 # Start tracking time
-./target/release/toggl start "My Project" --task "Working on something"
+./target/release/timespan start "My Project" --task "Working on something"
 
 # Check status
-./target/release/toggl status
+./target/release/timespan status
 
 # Stop tracking
-./target/release/toggl stop
+./target/release/timespan stop
 
 # View daily report
-./target/release/toggl report daily
+./target/release/timespan report daily
 ```
 
 ## Architecture
