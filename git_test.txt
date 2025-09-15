@@ -1,0 +1,4 @@
+Testing full Git integration
+- Client project detection
+- Automatic time analysis
+- Intelligent time tracking
