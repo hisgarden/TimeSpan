@@ -325,6 +325,7 @@ mod tests {
     use super::*;
     use crate::repository::SqliteRepository;
     use std::sync::Arc;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     async fn setup_git_service() -> GitService {

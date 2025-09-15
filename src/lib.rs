@@ -26,3 +26,6 @@ pub enum TimeSpanError {
 }
 
 pub type Result<T> = std::result::Result<T, TimeSpanError>;
+
+#[cfg(test)]
+mod security_tests;
