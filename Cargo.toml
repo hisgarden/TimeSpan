@@ -1,0 +1,26 @@
+[package]
+name = "toggl"
+version = "0.1.0"
+edition = "2021"
+authors = ["Your Name <your.email@example.com>"]
+description = "A local time tracking application built with Rust"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+rusqlite = { version = "0.30", features = ["bundled", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tokio = { version = "1.0", features = ["full"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+async-trait = "0.1"
+
+[dev-dependencies]
+cucumber = "0.20"
+tokio-test = "0.4"
+tempfile = "3.8"
+assert_matches = "1.5"
