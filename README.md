@@ -12,27 +12,55 @@ A local time tracking application built with Rust using Test-Driven Development 
 - ✅ **Tag Support**: Add tags to time entries for better categorization
 - ✅ **Local Storage**: All data stored locally in SQLite database
 - ✅ **CLI Interface**: Full-featured command-line interface
+- ✅ **Client Discovery**: Automatically discover and create projects from directory structures
+- ✅ **Homebrew Package**: Easy installation via Homebrew package manager
+
+## Installation
+
+### Homebrew (Recommended)
+
+```bash
+# Add the tap
+brew tap jwen/timespan
+
+# Install TimeSpan
+brew install timespan
+```
+
+### From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/jwen/TimeSpan.git
+cd TimeSpan
+
+# Build the project
+cargo build --release
+```
 
 ## Quick Start
 
 ```bash
-# Build the project
-cargo build --release
-
 # Create a project
-./target/release/timespan project create "My Project"
+timespan project create "My Project"
 
 # Start tracking time
-./target/release/timespan start "My Project" --task "Working on something"
+timespan start "My Project" --task "Working on something"
 
 # Check status
-./target/release/timespan status
+timespan status
 
 # Stop tracking
-./target/release/timespan stop
+timespan stop
 
 # View daily report
-./target/release/timespan report daily
+timespan report daily
+
+# List all projects
+timespan project list
+
+# Client project discovery
+timespan project discover --path /path/to/clients --dry-run
 ```
 
 ## Architecture
