@@ -1,6 +1,6 @@
 [package]
 name = "timespan"
-version = "0.1.0"
+version = "1.1.0"
 edition = "2021"
 authors = ["Jin Wen <jin.wen@hisgarden.org>"]
 description = "A local time tracking application built with Rust"
