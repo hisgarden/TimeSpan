@@ -103,6 +103,129 @@ pub enum GitCommands {
     },
 }
 
+/// Input validation and sanitization functions
+mod input_validation {
+    use crate::{Result, TimeSpanError};
+    
+    /// Maximum allowed length for project names and task descriptions
+    const MAX_INPUT_LENGTH: usize = 500;
+    
+    /// Validates and sanitizes project names
+    pub fn validate_project_name(name: &str) -> Result<String> {
+        let sanitized = sanitize_input(name)?;
+        
+        if sanitized.trim().is_empty() {
+            return Err(TimeSpanError::InvalidInput("Project name cannot be empty".to_string()));
+        }
+        
+        if sanitized.len() > MAX_INPUT_LENGTH {
+            return Err(TimeSpanError::InvalidInput(format!(
+                "Project name too long (max {} characters)", MAX_INPUT_LENGTH
+            )));
+        }
+        
+        // Check for potentially dangerous patterns
+        if contains_dangerous_patterns(&sanitized) {
+            return Err(TimeSpanError::InvalidInput(
+                "Project name contains invalid characters or patterns".to_string()
+            ));
+        }
+        
+        Ok(sanitized)
+    }
+    
+    /// Validates and sanitizes task descriptions (more permissive than project names)
+    pub fn validate_task_description(description: &str) -> Result<String> {
+        let sanitized = sanitize_input(description)?;
+        
+        if sanitized.len() > MAX_INPUT_LENGTH {
+            return Err(TimeSpanError::InvalidInput(format!(
+                "Task description too long (max {} characters)", MAX_INPUT_LENGTH
+            )));
+        }
+        
+        // Task descriptions can be more permissive, but still check for command injection patterns
+        if contains_command_injection_patterns(&sanitized) {
+            return Err(TimeSpanError::InvalidInput(
+                "Task description contains potentially dangerous patterns".to_string()
+            ));
+        }
+        
+        Ok(sanitized)
+    }
+    
+    /// Basic input sanitization
+    fn sanitize_input(input: &str) -> Result<String> {
+        // Remove null bytes and other control characters
+        let sanitized: String = input
+            .chars()
+            .filter(|c| !c.is_control() || c.is_whitespace())
+            .collect();
+        
+        Ok(sanitized)
+    }
+    
+    /// Check for dangerous patterns that could indicate injection attempts
+    fn contains_dangerous_patterns(input: &str) -> bool {
+        let dangerous_patterns = [
+            "rm -rf", "rm -r", "del /", "rmdir",
+            "$((", "$(", "`", "&&", "||", ";",
+            "DROP TABLE", "DELETE FROM", "INSERT INTO", "UPDATE ",
+            "<script", "javascript:", "eval(", "exec(",
+            "/etc/passwd", "/etc/shadow", "../../", "..\\..\\" 
+        ];
+        
+        let input_lower = input.to_lowercase();
+        dangerous_patterns.iter().any(|pattern| input_lower.contains(pattern))
+    }
+    
+    /// Check for command injection patterns (subset for task descriptions)
+    fn contains_command_injection_patterns(input: &str) -> bool {
+        let command_patterns = [
+            "rm -rf", "rm -r", "del /", "rmdir",
+            "$((", "$(", "`", "exec(",
+            "/etc/passwd", "/etc/shadow",
+        ];
+        
+        let input_lower = input.to_lowercase();
+        command_patterns.iter().any(|pattern| input_lower.contains(pattern))
+    }
+}
+
+/// Sanitizes error messages to prevent information disclosure
+pub fn sanitize_error_message(error: &crate::TimeSpanError) -> String {
+    match error {
+        crate::TimeSpanError::Database(_) => {
+            "Database operation failed".to_string()
+        }
+        crate::TimeSpanError::Io(_) => {
+            "File system operation failed".to_string()
+        }
+        crate::TimeSpanError::InvalidInput(msg) => {
+            // Input validation errors are safe to show
+            msg.clone()
+        }
+        crate::TimeSpanError::ProjectNotFound(name) => {
+            format!("Project '{}' not found", name)
+        }
+        crate::TimeSpanError::ProjectAlreadyExists(name) => {
+            format!("Project '{}' already exists", name)
+        }
+        crate::TimeSpanError::NoActiveTimer => {
+            "No active timer found".to_string()
+        }
+        crate::TimeSpanError::TimerAlreadyRunning(name) => {
+            format!("Timer is already running for project: {}", name)
+        }
+        crate::TimeSpanError::ProjectHasTimeEntries(name) => {
+            format!("Cannot delete project with time entries: {}", name)
+        }
+        crate::TimeSpanError::InvalidDuration(msg) => {
+            format!("Invalid duration format: {}", msg)
+        }
+    }
+}
+
 pub struct TimeSpanApp {
     project_service: ProjectService,
     tracking_service: TimeTrackingService,
@@ -142,13 +265,21 @@ impl TimeSpanApp {
     }
     
     async fn handle_start(&self, args: StartArgs) -> Result<()> {
-        match self.tracking_service.start_timer(&args.project, args.task.as_deref()).await {
+        // Validate and sanitize inputs
+        let project = input_validation::validate_project_name(&args.project)?;
+        let task = if let Some(task_desc) = args.task {
+            Some(input_validation::validate_task_description(&task_desc)?)
+        } else {
+            None
+        };
+        
+        match self.tracking_service.start_timer(&project, task.as_deref()).await {
             Ok(timer) => {
                 println!("Started tracking time for '{}'", timer.project_name);
                 Ok(())
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {}", sanitize_error_message(&e));
                 Err(e)
             }
         }
@@ -164,7 +295,7 @@ impl TimeSpanApp {
                 Ok(())
             }
             Err(e) => {
-                eprintln!("Error: {}", e);
+                eprintln!("Error: {}", sanitize_error_message(&e));
                 Err(e)
             }
         }
@@ -179,13 +310,21 @@ impl TimeSpanApp {
     async fn handle_project(&self, command: ProjectCommands) -> Result<()> {
         match command {
             ProjectCommands::Create { name, description } => {
-                match self.project_service.create_project(&name, description.as_deref()).await {
+                // Validate and sanitize inputs
+                let validated_name = input_validation::validate_project_name(&name)?;
+                let validated_description = if let Some(desc) = description {
+                    Some(input_validation::validate_task_description(&desc)?)
+                } else {
+                    None
+                };
+                
+                match self.project_service.create_project(&validated_name, validated_description.as_deref()).await {
                     Ok(_) => {
-                        println!("Created project '{}'", name);
+                        println!("Created project '{}'", validated_name);
                         Ok(())
                     }
                     Err(e) => {
-                        eprintln!("Error: {}", e);
+                        eprintln!("Error: {}", sanitize_error_message(&e));
                         Err(e)
                     }
                 }
@@ -313,7 +452,7 @@ impl TimeSpanApp {
                 Ok(())
             }
             Err(e) => {
-                eprintln!("❌ Discovery failed: {}", e);
+                eprintln!("❌ Discovery failed: {}", sanitize_error_message(&e));
                 Err(e)
             }
         }
@@ -341,7 +480,7 @@ impl TimeSpanApp {
                 Ok(())
             }
             Err(e) => {
-                eprintln!("❌ Failed to list client projects: {}", e);
+                eprintln!("❌ Failed to list client projects: {}", sanitize_error_message(&e));
                 Err(e)
             }
         }
@@ -417,7 +556,7 @@ impl TimeSpanApp {
                 Ok(())
             }
             Err(e) => {
-                eprintln!("❌ Failed to analyze commits: {}", e);
+                eprintln!("❌ Failed to analyze commits: {}", sanitize_error_message(&e));
                 Err(e)
             }
         }

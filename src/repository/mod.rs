@@ -42,11 +42,24 @@ pub struct SqliteRepository {
 
 impl SqliteRepository {
     pub fn new<P: AsRef<Path>>(db_path: P) -> Result<Self> {
+        let db_path = db_path.as_ref();
         let conn = Connection::open(db_path)?;
         let repo = Self {
             connection: std::sync::Mutex::new(conn),
         };
         repo.create_tables()?;
+        
+        // Set restrictive file permissions (owner read/write only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(metadata) = std::fs::metadata(db_path) {
+                let mut permissions = metadata.permissions();
+                permissions.set_mode(0o600); // Owner read/write only
+                let _ = std::fs::set_permissions(db_path, permissions);
+            }
+        }
+        
         Ok(repo)
     }
 
