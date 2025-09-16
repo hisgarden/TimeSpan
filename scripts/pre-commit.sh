@@ -19,6 +19,13 @@ if ! command -v cargo &> /dev/null; then
     exit 1
 fi
 
+# Run sensitive data detection first
+echo "🔒 Running sensitive data detection..."
+if ! ./scripts/sensitive-data-check.sh; then
+    echo "❌ Sensitive data detection failed. Please fix issues before committing."
+    exit 1
+fi
+
 echo "📋 Checking code formatting..."
 if ! cargo fmt --all -- --check; then
     echo "❌ Code formatting check failed. Run 'cargo fmt' to fix."
