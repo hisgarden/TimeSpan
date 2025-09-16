@@ -1,18 +1,18 @@
 # TimeSpan ⏱️
 
-**Intelligent Local Time Tracking for Developers**
+**Local Time Tracking for Developers**
 
-TimeSpan is a powerful, privacy-first time tracking application designed for developers who value accuracy, automation, and local data control. Track your work seamlessly with Git integration, smart project detection, and comprehensive reporting.
+TimeSpan is a privacy-first time tracking application designed for developers who value accuracy, automation, and local data control. Track your work with Git integration, project detection, and comprehensive reporting.
 
 ## ✨ Key Features
 
 ### 🚀 **Automatic Git Integration**
-- **Smart Commit Analysis**: Automatically estimates time based on commit complexity
+- **Commit Analysis**: Automatically estimates time based on commit complexity
 - **Retroactive Tracking**: Import historical work from Git commits
 - **One-Command Workflow**: `ts` command combines commit + time tracking
-- **Intelligent Classification**: Automatically categorizes commits (Feature, BugFix, Test, etc.)
+- **Automatic Classification**: Automatically categorizes commits (Feature, BugFix, Test, etc.)
 
-### 📁 **Smart Project Management** 
+### 📁 **Project Management** 
 - **Client Project Discovery**: Auto-detect projects from directory structures
 - **Project Organization**: Separate personal and client work automatically
 - **Flexible Structure**: Support for complex project hierarchies
@@ -112,9 +112,9 @@ timespan stop
 timespan report daily
 ```
 
-### 🎆 **Revolutionary Git Integration**
+### 🎆 **Git Integration**
 
-The game-changing `ts` command combines Git commits with automatic time tracking:
+The `ts` command combines Git commits with automatic time tracking:
 
 ```bash
 # Navigate to any Git repository
@@ -316,4 +316,4 @@ A: The algorithm considers file complexity, lines changed, and commit patterns. 
 
 ---
 
-**TimeSpan v1.1.0** - Intelligent time tracking for the modern developer ✨
+**TimeSpan v1.1.0** - Time tracking for developers ✨

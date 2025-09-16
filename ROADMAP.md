@@ -1,7 +1,7 @@
 # TimeSpan Roadmap
 
 ## 🎯 Vision
-Transform TimeSpan from a manual time tracker into an intelligent, Git-integrated productivity analytics platform.
+Evolve TimeSpan from a manual time tracker into a Git-integrated productivity analytics platform.
 
 ## 🗺️ Roadmap Overview
 
@@ -224,4 +224,4 @@ timespan git import --repo /path/to/repo   # Import specific repository
    - Test basic time estimation
    - Validate project detection
 
-Would you like me to start implementing the Git integration feature? This would be a game-changing addition that makes TimeSpan much more practical for real-world development work!
+Would you like me to start implementing the Git integration feature? This would be a useful addition that makes TimeSpan more practical for real-world development work.
