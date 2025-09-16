@@ -45,6 +45,7 @@ impl Default for DiscoveryOptions {
             exclude_patterns: vec![
                 ".DS_Store".to_string(),
                 ".git".to_string(),
+                ".github".to_string(),
                 ".*".to_string(), // Exclude all hidden directories/files
                 "*.pdf".to_string(),
                 "*.mp4".to_string(),
@@ -323,6 +324,7 @@ mod tests {
         assert!(service.should_exclude(".cursor", &exclude_patterns));
         assert!(service.should_exclude(".vscode", &exclude_patterns));
         assert!(service.should_exclude(".git", &exclude_patterns));
+        assert!(service.should_exclude(".github", &exclude_patterns));
         assert!(service.should_exclude(".idea", &exclude_patterns));
 
         // Test that non-hidden directories are not excluded
