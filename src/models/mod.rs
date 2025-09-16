@@ -191,7 +191,7 @@ impl TimeReport {
             .fold(Duration::zero(), |acc, d| acc + d);
 
         let mut project_summaries = std::collections::HashMap::new();
-        
+
         for entry in &entries {
             let summary = project_summaries
                 .entry(entry.project_name.clone())
@@ -200,9 +200,9 @@ impl TimeReport {
                     total_duration: Duration::zero(),
                     entry_count: 0,
                 });
-            
+
             if let Some(duration) = entry.duration {
-                summary.total_duration = summary.total_duration + duration;
+                summary.total_duration += duration;
             }
             summary.entry_count += 1;
         }
@@ -226,7 +226,7 @@ mod tests {
     #[test]
     fn test_project_creation() {
         let project = Project::new("Test Project".to_string(), None);
-        
+
         assert_eq!(project.name, "Test Project");
         assert!(project.description.is_none());
         assert!(project.created_at <= Utc::now());
@@ -237,7 +237,7 @@ mod tests {
     fn test_project_with_description() {
         let description = Some("A test project description".to_string());
         let project = Project::new("Test Project".to_string(), description.clone());
-        
+
         assert_eq!(project.description, description);
     }
 
@@ -245,12 +245,12 @@ mod tests {
     fn test_project_update_description() {
         let mut project = Project::new("Test Project".to_string(), None);
         let original_updated_at = project.updated_at;
-        
+
         // Small delay to ensure updated_at changes
         std::thread::sleep(std::time::Duration::from_millis(1));
-        
+
         project.update_description(Some("New description".to_string()));
-        
+
         assert_eq!(project.description, Some("New description".to_string()));
         assert!(project.updated_at > original_updated_at);
     }
@@ -259,14 +259,14 @@ mod tests {
     fn test_time_entry_creation() {
         let project_id = Uuid::new_v4();
         let start_time = Utc::now();
-        
+
         let entry = TimeEntry::new(
             project_id,
             "Test Project".to_string(),
             Some("Test task".to_string()),
             start_time,
         );
-        
+
         assert_eq!(entry.project_id, project_id);
         assert_eq!(entry.project_name, "Test Project");
         assert_eq!(entry.task_description, Some("Test task".to_string()));
@@ -281,16 +281,11 @@ mod tests {
         let project_id = Uuid::new_v4();
         let start_time = Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap();
         let end_time = Utc.with_ymd_and_hms(2024, 1, 1, 10, 30, 0).unwrap();
-        
-        let mut entry = TimeEntry::new(
-            project_id,
-            "Test Project".to_string(),
-            None,
-            start_time,
-        );
-        
+
+        let mut entry = TimeEntry::new(project_id, "Test Project".to_string(), None, start_time);
+
         let result = entry.stop(end_time);
-        
+
         assert!(result.is_ok());
         assert_eq!(entry.end_time, Some(end_time));
         assert_eq!(entry.duration, Some(Duration::minutes(90)));
@@ -302,31 +297,29 @@ mod tests {
         let project_id = Uuid::new_v4();
         let start_time = Utc.with_ymd_and_hms(2024, 1, 1, 10, 0, 0).unwrap();
         let end_time = Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap(); // Before start time
-        
+
         let mut entry = TimeEntry::new(project_id, "Test Project".to_string(), None, start_time);
-        
+
         let result = entry.stop(end_time);
-        
+
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), crate::TimeSpanError::InvalidDuration(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            crate::TimeSpanError::InvalidDuration(_)
+        ));
     }
 
     #[test]
     fn test_time_entry_tags() {
         let project_id = Uuid::new_v4();
-        let mut entry = TimeEntry::new(
-            project_id,
-            "Test Project".to_string(),
-            None,
-            Utc::now(),
-        );
-        
+        let mut entry = TimeEntry::new(project_id, "Test Project".to_string(), None, Utc::now());
+
         entry.add_tag("development".to_string());
         entry.add_tag("rust".to_string());
         entry.add_tag("development".to_string()); // Duplicate should be ignored
-        
+
         assert_eq!(entry.tags, vec!["development", "rust"]);
-        
+
         entry.remove_tag("rust");
         assert_eq!(entry.tags, vec!["development"]);
     }
@@ -335,9 +328,9 @@ mod tests {
     fn test_time_entry_current_duration() {
         let project_id = Uuid::new_v4();
         let start_time = Utc::now() - Duration::minutes(30);
-        
+
         let entry = TimeEntry::new(project_id, "Test Project".to_string(), None, start_time);
-        
+
         let current_duration = entry.current_duration();
         assert!(current_duration >= Duration::minutes(29)); // Allow for test execution time
         assert!(current_duration <= Duration::minutes(31));
@@ -347,14 +340,14 @@ mod tests {
     fn test_timer_creation() {
         let project_id = Uuid::new_v4();
         let start_time = Utc::now();
-        
+
         let timer = Timer::new(
             project_id,
             "Test Project".to_string(),
             Some("Test task".to_string()),
             start_time,
         );
-        
+
         assert_eq!(timer.project_id, project_id);
         assert_eq!(timer.project_name, "Test Project");
         assert_eq!(timer.task_description, Some("Test task".to_string()));
@@ -365,9 +358,9 @@ mod tests {
     fn test_timer_elapsed() {
         let project_id = Uuid::new_v4();
         let start_time = Utc::now() - Duration::minutes(15);
-        
+
         let timer = Timer::new(project_id, "Test Project".to_string(), None, start_time);
-        
+
         let elapsed = timer.elapsed();
         assert!(elapsed >= Duration::minutes(14)); // Allow for test execution time
         assert!(elapsed <= Duration::minutes(16));
@@ -377,11 +370,11 @@ mod tests {
     fn test_timer_tags() {
         let project_id = Uuid::new_v4();
         let mut timer = Timer::new(project_id, "Test Project".to_string(), None, Utc::now());
-        
+
         timer.add_tag("development".to_string());
         timer.add_tag("rust".to_string());
         timer.add_tag("development".to_string()); // Duplicate should be ignored
-        
+
         assert_eq!(timer.tags, vec!["development", "rust"]);
     }
 
@@ -390,26 +383,30 @@ mod tests {
         let project_id = Uuid::new_v4();
         let start_time = Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap();
         let end_time = Utc.with_ymd_and_hms(2024, 1, 1, 17, 0, 0).unwrap();
-        
+
         let mut entry1 = TimeEntry::new(
             project_id,
             "Project A".to_string(),
             None,
             Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap(),
         );
-        entry1.stop(Utc.with_ymd_and_hms(2024, 1, 1, 11, 0, 0).unwrap()).unwrap();
-        
+        entry1
+            .stop(Utc.with_ymd_and_hms(2024, 1, 1, 11, 0, 0).unwrap())
+            .unwrap();
+
         let mut entry2 = TimeEntry::new(
             project_id,
             "Project B".to_string(),
             None,
             Utc.with_ymd_and_hms(2024, 1, 1, 13, 0, 0).unwrap(),
         );
-        entry2.stop(Utc.with_ymd_and_hms(2024, 1, 1, 15, 30, 0).unwrap()).unwrap();
-        
+        entry2
+            .stop(Utc.with_ymd_and_hms(2024, 1, 1, 15, 30, 0).unwrap())
+            .unwrap();
+
         let entries = vec![entry1, entry2];
         let report = TimeReport::new(entries, start_time, end_time);
-        
+
         assert_eq!(report.total_duration, Duration::minutes(270)); // 2h + 2.5h = 4.5h
         assert_eq!(report.entries.len(), 2);
         assert_eq!(report.project_summaries.len(), 2);
@@ -492,7 +489,7 @@ impl GitCommit {
 
     pub fn detect_commit_type(&self) -> CommitType {
         let msg = self.message.to_lowercase();
-        
+
         if msg.starts_with("feat") || msg.contains("feature") || msg.contains("add") {
             CommitType::Feature
         } else if msg.starts_with("fix") || msg.contains("bug") || msg.contains("error") {

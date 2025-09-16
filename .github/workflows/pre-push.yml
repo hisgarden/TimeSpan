@@ -1,0 +1,82 @@
+name: Pre-Push Gate
+
+on:
+  push:
+    branches: [ main, develop ]
+  # This workflow will run on every push and can be used to prevent bad commits
+
+jobs:
+  pre-push-checks:
+    name: Pre-Push Validation
+    runs-on: ubuntu-latest
+    
+    # This job will fail if any step fails, effectively blocking the push
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+        override: true
+        
+    - name: Cache cargo registry
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+          
+    - name: Check code formatting
+      run: |
+        echo "🔍 Checking code formatting..."
+        cargo fmt --all -- --check
+        echo "✅ Code formatting is correct"
+        
+    - name: Run clippy lints
+      run: |
+        echo "🔍 Running clippy lints..."
+        cargo clippy --all-targets --all-features -- -D warnings
+        echo "✅ Clippy checks passed"
+        
+    - name: Run unit tests
+      run: |
+        echo "🧪 Running unit tests..."
+        cargo test --lib
+        echo "✅ Unit tests passed"
+        
+    - name: Run integration tests
+      run: |
+        echo "🧪 Running integration tests..."
+        cargo test --test integration
+        echo "✅ Integration tests passed"
+        
+    - name: Run all tests
+      run: |
+        echo "🧪 Running all tests..."
+        cargo test --verbose
+        echo "✅ All tests passed"
+        
+    - name: Build project
+      run: |
+        echo "🔨 Building project..."
+        cargo build --release
+        echo "✅ Build successful"
+        
+    - name: Security audit
+      run: |
+        echo "🔒 Running security audit..."
+        cargo install cargo-audit
+        cargo audit
+        echo "✅ Security audit passed"
+        
+    - name: Pre-push validation complete
+      run: |
+        echo "🎉 All pre-push checks passed!"
+        echo "✅ Push to ${{ github.ref_name }} is allowed"

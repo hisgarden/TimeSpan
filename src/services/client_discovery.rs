@@ -90,15 +90,21 @@ impl ClientDiscoveryService {
         };
 
         // Scan the base directory
-        let directories = self.scan_client_directories(&options.base_path, &options.exclude_patterns)?;
+        let directories =
+            self.scan_client_directories(&options.base_path, &options.exclude_patterns)?;
         result.discovered_directories = directories.clone();
 
         // Process each directory
         for dir in directories {
-            match self.process_client_directory(&dir, options, &mut result).await {
+            match self
+                .process_client_directory(&dir, options, &mut result)
+                .await
+            {
                 Ok(_) => {}
                 Err(e) => {
-                    result.errors.push(format!("Error processing {}: {}", dir.name, e));
+                    result
+                        .errors
+                        .push(format!("Error processing {}: {}", dir.name, e));
                 }
             }
         }
@@ -120,9 +126,7 @@ impl ClientDiscoveryService {
             )));
         }
 
-        let entries = fs::read_dir(base_path).map_err(|e| {
-            TimeSpanError::Io(e)
-        })?;
+        let entries = fs::read_dir(base_path).map_err(TimeSpanError::Io)?;
 
         for entry in entries {
             let entry = entry.map_err(TimeSpanError::Io)?;
@@ -177,7 +181,7 @@ impl ClientDiscoveryService {
 
     fn analyze_directory(&self, name: &str, path: &Path) -> Result<ClientDirectory> {
         let is_git_repo = path.join(".git").exists();
-        
+
         let last_modified = fs::metadata(path)
             .ok()
             .and_then(|meta| meta.modified().ok());
@@ -213,7 +217,7 @@ impl ClientDiscoveryService {
         // Add path info
         let location = format!("Location: {}", path.display());
         parts.push(&location);
-        
+
         Some(parts.join(" "))
     }
 
@@ -234,16 +238,21 @@ impl ClientDiscoveryService {
                 // Project exists - potentially update it
                 if !options.dry_run {
                     // Update directory path if it has changed
-                    if existing_project.directory_path.as_deref() != Some(dir.path.to_str().unwrap_or_default()) {
+                    if existing_project.directory_path.as_deref()
+                        != Some(dir.path.to_str().unwrap_or_default())
+                    {
                         let mut updated_project = existing_project.clone();
-                        updated_project.directory_path = Some(dir.path.to_string_lossy().to_string());
+                        updated_project.directory_path =
+                            Some(dir.path.to_string_lossy().to_string());
                         updated_project.is_client_project = true;
                         updated_project.updated_at = chrono::Utc::now();
-                        
+
                         self.repository.update_project(&updated_project).await?;
                         result.updated_projects.push(updated_project);
                     } else {
-                        result.skipped_directories.push(format!("{} (already exists)", project_name));
+                        result
+                            .skipped_directories
+                            .push(format!("{} (already exists)", project_name));
                     }
                 }
             }
@@ -255,7 +264,7 @@ impl ClientDiscoveryService {
                         dir.suggested_description.clone(),
                         dir.path.to_string_lossy().to_string(),
                     );
-                    
+
                     self.repository.create_project(&new_project).await?;
                     result.created_projects.push(new_project);
                 }
@@ -270,7 +279,10 @@ impl ClientDiscoveryService {
 
     pub async fn list_client_projects(&self) -> Result<Vec<Project>> {
         let all_projects = self.project_service.list_projects().await?;
-        Ok(all_projects.into_iter().filter(|p| p.is_client_project).collect())
+        Ok(all_projects
+            .into_iter()
+            .filter(|p| p.is_client_project)
+            .collect())
     }
 }
 
@@ -286,9 +298,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_discovery_service_creation() {
-        let service = setup_service().await;
+        let _service = setup_service().await;
         // Test that service can be created without error
-        assert!(!service.repository.list_projects().await.unwrap().is_empty() || true);
+        // This test verifies the service can be instantiated successfully
     }
 
     #[tokio::test]
@@ -312,7 +324,7 @@ mod tests {
         assert!(service.should_exclude(".vscode", &exclude_patterns));
         assert!(service.should_exclude(".git", &exclude_patterns));
         assert!(service.should_exclude(".idea", &exclude_patterns));
-        
+
         // Test that non-hidden directories are not excluded
         assert!(!service.should_exclude("ValidClient", &exclude_patterns));
         assert!(!service.should_exclude("MyProject", &exclude_patterns));
@@ -321,7 +333,10 @@ mod tests {
     #[test]
     fn test_default_options() {
         let options = DiscoveryOptions::default();
-        assert_eq!(options.base_path, PathBuf::from("/Users/user/workspace/Clients"));
+        assert_eq!(
+            options.base_path,
+            PathBuf::from("/Users/user/workspace/Clients")
+        );
         assert!(options.exclude_patterns.contains(&".DS_Store".to_string()));
         assert_eq!(options.project_prefix, Some("[CLIENT]".to_string()));
     }

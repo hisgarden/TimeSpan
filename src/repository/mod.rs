@@ -48,7 +48,7 @@ impl SqliteRepository {
             connection: std::sync::Mutex::new(conn),
         };
         repo.create_tables()?;
-        
+
         // Set restrictive file permissions (owner read/write only)
         #[cfg(unix)]
         {
@@ -59,7 +59,7 @@ impl SqliteRepository {
                 let _ = std::fs::set_permissions(db_path, permissions);
             }
         }
-        
+
         Ok(repo)
     }
 
@@ -74,7 +74,7 @@ impl SqliteRepository {
 
     fn create_tables(&self) -> Result<()> {
         let conn = self.connection.lock().unwrap();
-        
+
         conn.execute(
             r#"
             CREATE TABLE IF NOT EXISTS projects (
@@ -139,10 +139,7 @@ impl SqliteRepository {
             .is_ok();
 
         if !has_directory_path {
-            conn.execute(
-                "ALTER TABLE projects ADD COLUMN directory_path TEXT",
-                [],
-            )?;
+            conn.execute("ALTER TABLE projects ADD COLUMN directory_path TEXT", [])?;
         }
 
         if !has_is_client_project {
@@ -161,7 +158,9 @@ impl SqliteRepository {
             name: row.get("name")?,
             description: row.get("description")?,
             directory_path: row.get("directory_path")?,
-            is_client_project: row.get::<_, Option<bool>>("is_client_project")?.unwrap_or(false),
+            is_client_project: row
+                .get::<_, Option<bool>>("is_client_project")?
+                .unwrap_or(false),
             created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>("created_at")?)
                 .unwrap()
                 .with_timezone(&Utc),
@@ -187,7 +186,7 @@ impl SqliteRepository {
         });
 
         let duration_seconds: Option<i64> = row.get("duration_seconds")?;
-        let duration = duration_seconds.map(|s| chrono::Duration::seconds(s));
+        let duration = duration_seconds.map(chrono::Duration::seconds);
 
         Ok(TimeEntry {
             id: Uuid::parse_str(&row.get::<_, String>("id")?).unwrap(),
@@ -234,7 +233,7 @@ impl SqliteRepository {
 impl Repository for SqliteRepository {
     async fn create_project(&self, project: &Project) -> Result<()> {
         let conn = self.connection.lock().unwrap();
-        
+
         let result = conn.execute(
             "INSERT INTO projects (id, name, description, directory_path, is_client_project, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
@@ -254,7 +253,9 @@ impl Repository for SqliteRepository {
                 if err.code == rusqlite::ErrorCode::ConstraintViolation {
                     Err(TimeSpanError::ProjectAlreadyExists(project.name.clone()))
                 } else {
-                    Err(TimeSpanError::Database(rusqlite::Error::SqliteFailure(err, None)))
+                    Err(TimeSpanError::Database(rusqlite::Error::SqliteFailure(
+                        err, None,
+                    )))
                 }
             }
             Err(e) => Err(TimeSpanError::Database(e)),
@@ -263,10 +264,10 @@ impl Repository for SqliteRepository {
 
     async fn get_project_by_name(&self, name: &str) -> Result<Option<Project>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare("SELECT id, name, description, directory_path, is_client_project, created_at, updated_at FROM projects WHERE name = ?1")?;
         let mut rows = stmt.query_map(params![name], Self::project_from_row)?;
-        
+
         if let Some(row) = rows.next() {
             Ok(Some(row?))
         } else {
@@ -276,10 +277,10 @@ impl Repository for SqliteRepository {
 
     async fn get_project_by_id(&self, id: Uuid) -> Result<Option<Project>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare("SELECT id, name, description, directory_path, is_client_project, created_at, updated_at FROM projects WHERE id = ?1")?;
         let mut rows = stmt.query_map(params![id.to_string()], Self::project_from_row)?;
-        
+
         if let Some(row) = rows.next() {
             Ok(Some(row?))
         } else {
@@ -289,21 +290,21 @@ impl Repository for SqliteRepository {
 
     async fn list_projects(&self) -> Result<Vec<Project>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare("SELECT id, name, description, directory_path, is_client_project, created_at, updated_at FROM projects ORDER BY name")?;
         let project_iter = stmt.query_map([], Self::project_from_row)?;
-        
+
         let mut projects = Vec::new();
         for project in project_iter {
             projects.push(project?);
         }
-        
+
         Ok(projects)
     }
 
     async fn update_project(&self, project: &Project) -> Result<()> {
         let conn = self.connection.lock().unwrap();
-        
+
         conn.execute(
             "UPDATE projects SET name = ?2, description = ?3, directory_path = ?4, is_client_project = ?5, updated_at = ?6 WHERE id = ?1",
             params![
@@ -315,31 +316,37 @@ impl Repository for SqliteRepository {
                 project.updated_at.to_rfc3339(),
             ],
         )?;
-        
+
         Ok(())
     }
 
     async fn delete_project(&self, id: Uuid) -> Result<()> {
         // Check if project has time entries (need to do this outside the lock)
         let project = self.get_project_by_id(id).await?;
-        let project_name = project.as_ref().map(|p| p.name.clone()).unwrap_or_else(|| id.to_string());
-        
+        let project_name = project
+            .as_ref()
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| id.to_string());
+
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM time_entries WHERE project_id = ?1")?;
         let count: i64 = stmt.query_row(params![id.to_string()], |row| row.get(0))?;
-        
+
         if count > 0 {
             return Err(TimeSpanError::ProjectHasTimeEntries(project_name));
         }
-        
-        conn.execute("DELETE FROM projects WHERE id = ?1", params![id.to_string()])?;
+
+        conn.execute(
+            "DELETE FROM projects WHERE id = ?1",
+            params![id.to_string()],
+        )?;
         Ok(())
     }
 
     async fn create_time_entry(&self, entry: &TimeEntry) -> Result<()> {
         let conn = self.connection.lock().unwrap();
-        
+
         let tags_json = if entry.tags.is_empty() {
             None
         } else {
@@ -348,7 +355,7 @@ impl Repository for SqliteRepository {
 
         let duration_seconds = entry.duration.map(|d| d.num_seconds());
         let end_time = entry.end_time.map(|dt| dt.to_rfc3339());
-        
+
         conn.execute(
             r#"
             INSERT INTO time_entries 
@@ -368,22 +375,22 @@ impl Repository for SqliteRepository {
                 entry.updated_at.to_rfc3339(),
             ],
         )?;
-        
+
         Ok(())
     }
 
     async fn get_time_entry_by_id(&self, id: Uuid) -> Result<Option<TimeEntry>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare(
             r#"
             SELECT id, project_id, project_name, task_description, start_time, end_time, 
                    duration_seconds, tags, created_at, updated_at 
             FROM time_entries WHERE id = ?1
-            "#
+            "#,
         )?;
         let mut rows = stmt.query_map(params![id.to_string()], Self::time_entry_from_row)?;
-        
+
         if let Some(row) = rows.next() {
             Ok(Some(row?))
         } else {
@@ -393,17 +400,17 @@ impl Repository for SqliteRepository {
 
     async fn get_active_time_entry(&self) -> Result<Option<TimeEntry>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare(
             r#"
             SELECT id, project_id, project_name, task_description, start_time, end_time, 
                    duration_seconds, tags, created_at, updated_at 
             FROM time_entries WHERE end_time IS NULL
             ORDER BY start_time DESC LIMIT 1
-            "#
+            "#,
         )?;
         let mut rows = stmt.query_map([], Self::time_entry_from_row)?;
-        
+
         if let Some(row) = rows.next() {
             Ok(Some(row?))
         } else {
@@ -413,22 +420,23 @@ impl Repository for SqliteRepository {
 
     async fn list_time_entries_by_project(&self, project_id: Uuid) -> Result<Vec<TimeEntry>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare(
             r#"
             SELECT id, project_id, project_name, task_description, start_time, end_time, 
                    duration_seconds, tags, created_at, updated_at 
             FROM time_entries WHERE project_id = ?1
             ORDER BY start_time DESC
-            "#
+            "#,
         )?;
-        let entry_iter = stmt.query_map(params![project_id.to_string()], Self::time_entry_from_row)?;
-        
+        let entry_iter =
+            stmt.query_map(params![project_id.to_string()], Self::time_entry_from_row)?;
+
         let mut entries = Vec::new();
         for entry in entry_iter {
             entries.push(entry?);
         }
-        
+
         Ok(entries)
     }
 
@@ -438,7 +446,7 @@ impl Repository for SqliteRepository {
         end: DateTime<Utc>,
     ) -> Result<Vec<TimeEntry>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare(
             r#"
             SELECT id, project_id, project_name, task_description, start_time, end_time, 
@@ -446,24 +454,24 @@ impl Repository for SqliteRepository {
             FROM time_entries 
             WHERE start_time >= ?1 AND start_time <= ?2
             ORDER BY start_time ASC
-            "#
+            "#,
         )?;
         let entry_iter = stmt.query_map(
-            params![start.to_rfc3339(), end.to_rfc3339()], 
-            Self::time_entry_from_row
+            params![start.to_rfc3339(), end.to_rfc3339()],
+            Self::time_entry_from_row,
         )?;
-        
+
         let mut entries = Vec::new();
         for entry in entry_iter {
             entries.push(entry?);
         }
-        
+
         Ok(entries)
     }
 
     async fn update_time_entry(&self, entry: &TimeEntry) -> Result<()> {
         let conn = self.connection.lock().unwrap();
-        
+
         let tags_json = if entry.tags.is_empty() {
             None
         } else {
@@ -472,7 +480,7 @@ impl Repository for SqliteRepository {
 
         let duration_seconds = entry.duration.map(|d| d.num_seconds());
         let end_time = entry.end_time.map(|dt| dt.to_rfc3339());
-        
+
         conn.execute(
             r#"
             UPDATE time_entries 
@@ -492,31 +500,31 @@ impl Repository for SqliteRepository {
                 entry.updated_at.to_rfc3339(),
             ],
         )?;
-        
+
         Ok(())
     }
 
     async fn count_time_entries_for_project(&self, project_id: Uuid) -> Result<usize> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare("SELECT COUNT(*) FROM time_entries WHERE project_id = ?1")?;
         let count: i64 = stmt.query_row(params![project_id.to_string()], |row| row.get(0))?;
-        
+
         Ok(count as usize)
     }
 
     async fn save_active_timer(&self, timer: &Timer) -> Result<()> {
         let conn = self.connection.lock().unwrap();
-        
+
         // Clear any existing active timer
         conn.execute("DELETE FROM active_timer", [])?;
-        
+
         let tags_json = if timer.tags.is_empty() {
             None
         } else {
             Some(serde_json::to_string(&timer.tags).unwrap())
         };
-        
+
         conn.execute(
             r#"
             INSERT INTO active_timer 
@@ -532,18 +540,18 @@ impl Repository for SqliteRepository {
                 tags_json,
             ],
         )?;
-        
+
         Ok(())
     }
 
     async fn get_active_timer(&self) -> Result<Option<Timer>> {
         let conn = self.connection.lock().unwrap();
-        
+
         let mut stmt = conn.prepare(
             "SELECT id, project_id, project_name, task_description, start_time, tags FROM active_timer"
         )?;
         let mut rows = stmt.query_map([], Self::timer_from_row)?;
-        
+
         if let Some(row) = rows.next() {
             Ok(Some(row?))
         } else {
@@ -579,9 +587,9 @@ mod tests {
     async fn test_create_and_get_project() {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), Some("Description".to_string()));
-        
+
         repo.create_project(&project).await.unwrap();
-        
+
         let retrieved = repo.get_project_by_name("Test Project").await.unwrap();
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
@@ -594,12 +602,15 @@ mod tests {
         let repo = setup_repo().await;
         let project1 = Project::new("Test Project".to_string(), None);
         let project2 = Project::new("Test Project".to_string(), None);
-        
+
         repo.create_project(&project1).await.unwrap();
-        
+
         let result = repo.create_project(&project2).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), TimeSpanError::ProjectAlreadyExists(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            TimeSpanError::ProjectAlreadyExists(_)
+        ));
     }
 
     #[tokio::test]
@@ -607,10 +618,10 @@ mod tests {
         let repo = setup_repo().await;
         let project1 = Project::new("Project A".to_string(), None);
         let project2 = Project::new("Project B".to_string(), None);
-        
+
         repo.create_project(&project1).await.unwrap();
         repo.create_project(&project2).await.unwrap();
-        
+
         let projects = repo.list_projects().await.unwrap();
         assert_eq!(projects.len(), 2);
         assert_eq!(projects[0].name, "Project A"); // Should be sorted alphabetically
@@ -621,12 +632,12 @@ mod tests {
     async fn test_update_project() {
         let repo = setup_repo().await;
         let mut project = Project::new("Test Project".to_string(), None);
-        
+
         repo.create_project(&project).await.unwrap();
-        
+
         project.update_description(Some("New description".to_string()));
         repo.update_project(&project).await.unwrap();
-        
+
         let retrieved = repo.get_project_by_id(project.id).await.unwrap().unwrap();
         assert_eq!(retrieved.description, Some("New description".to_string()));
         assert_eq!(retrieved.updated_at, project.updated_at);
@@ -636,10 +647,10 @@ mod tests {
     async fn test_delete_project_without_entries() {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), None);
-        
+
         repo.create_project(&project).await.unwrap();
         repo.delete_project(project.id).await.unwrap();
-        
+
         let retrieved = repo.get_project_by_id(project.id).await.unwrap();
         assert!(retrieved.is_none());
     }
@@ -649,18 +660,16 @@ mod tests {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), None);
         repo.create_project(&project).await.unwrap();
-        
-        let entry = TimeEntry::new(
-            project.id,
-            project.name.clone(),
-            None,
-            Utc::now(),
-        );
+
+        let entry = TimeEntry::new(project.id, project.name.clone(), None, Utc::now());
         repo.create_time_entry(&entry).await.unwrap();
-        
+
         let result = repo.delete_project(project.id).await;
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), TimeSpanError::ProjectHasTimeEntries(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            TimeSpanError::ProjectHasTimeEntries(_)
+        ));
     }
 
     #[tokio::test]
@@ -668,7 +677,7 @@ mod tests {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), None);
         repo.create_project(&project).await.unwrap();
-        
+
         let mut entry = TimeEntry::new(
             project.id,
             project.name.clone(),
@@ -676,9 +685,9 @@ mod tests {
             Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap(),
         );
         entry.add_tag("development".to_string());
-        
+
         repo.create_time_entry(&entry).await.unwrap();
-        
+
         let retrieved = repo.get_time_entry_by_id(entry.id).await.unwrap().unwrap();
         assert_eq!(retrieved.project_name, "Test Project");
         assert_eq!(retrieved.task_description, Some("Test task".to_string()));
@@ -691,7 +700,7 @@ mod tests {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), None);
         repo.create_project(&project).await.unwrap();
-        
+
         // Create a finished entry
         let mut finished_entry = TimeEntry::new(
             project.id,
@@ -699,9 +708,11 @@ mod tests {
             None,
             Utc.with_ymd_and_hms(2024, 1, 1, 8, 0, 0).unwrap(),
         );
-        finished_entry.stop(Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap()).unwrap();
+        finished_entry
+            .stop(Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap())
+            .unwrap();
         repo.create_time_entry(&finished_entry).await.unwrap();
-        
+
         // Create an active entry
         let active_entry = TimeEntry::new(
             project.id,
@@ -710,7 +721,7 @@ mod tests {
             Utc.with_ymd_and_hms(2024, 1, 1, 10, 0, 0).unwrap(),
         );
         repo.create_time_entry(&active_entry).await.unwrap();
-        
+
         let retrieved = repo.get_active_time_entry().await.unwrap();
         assert!(retrieved.is_some());
         assert_eq!(retrieved.unwrap().id, active_entry.id);
@@ -721,7 +732,7 @@ mod tests {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), None);
         repo.create_project(&project).await.unwrap();
-        
+
         let mut entry = TimeEntry::new(
             project.id,
             project.name.clone(),
@@ -729,10 +740,12 @@ mod tests {
             Utc.with_ymd_and_hms(2024, 1, 1, 9, 0, 0).unwrap(),
         );
         repo.create_time_entry(&entry).await.unwrap();
-        
-        entry.stop(Utc.with_ymd_and_hms(2024, 1, 1, 10, 30, 0).unwrap()).unwrap();
+
+        entry
+            .stop(Utc.with_ymd_and_hms(2024, 1, 1, 10, 30, 0).unwrap())
+            .unwrap();
         repo.update_time_entry(&entry).await.unwrap();
-        
+
         let retrieved = repo.get_time_entry_by_id(entry.id).await.unwrap().unwrap();
         assert!(!retrieved.is_running());
         assert_eq!(retrieved.duration, Some(chrono::Duration::minutes(90)));
@@ -745,19 +758,25 @@ mod tests {
         let project2 = Project::new("Project 2".to_string(), None);
         repo.create_project(&project1).await.unwrap();
         repo.create_project(&project2).await.unwrap();
-        
+
         let entry1 = TimeEntry::new(project1.id, project1.name.clone(), None, Utc::now());
         let entry2 = TimeEntry::new(project1.id, project1.name.clone(), None, Utc::now());
         let entry3 = TimeEntry::new(project2.id, project2.name.clone(), None, Utc::now());
-        
+
         repo.create_time_entry(&entry1).await.unwrap();
         repo.create_time_entry(&entry2).await.unwrap();
         repo.create_time_entry(&entry3).await.unwrap();
-        
-        let project1_entries = repo.list_time_entries_by_project(project1.id).await.unwrap();
+
+        let project1_entries = repo
+            .list_time_entries_by_project(project1.id)
+            .await
+            .unwrap();
         assert_eq!(project1_entries.len(), 2);
-        
-        let project2_entries = repo.list_time_entries_by_project(project2.id).await.unwrap();
+
+        let project2_entries = repo
+            .list_time_entries_by_project(project2.id)
+            .await
+            .unwrap();
         assert_eq!(project2_entries.len(), 1);
     }
 
@@ -766,7 +785,7 @@ mod tests {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), None);
         repo.create_project(&project).await.unwrap();
-        
+
         let mut timer = Timer::new(
             project.id,
             project.name.clone(),
@@ -774,24 +793,24 @@ mod tests {
             Utc::now(),
         );
         timer.add_tag("development".to_string());
-        
+
         // No active timer initially
         let active = repo.get_active_timer().await.unwrap();
         assert!(active.is_none());
-        
+
         // Save timer
         repo.save_active_timer(&timer).await.unwrap();
-        
+
         let active = repo.get_active_timer().await.unwrap();
         assert!(active.is_some());
         let active = active.unwrap();
         assert_eq!(active.project_name, "Test Project");
         assert_eq!(active.task_description, Some("Test task".to_string()));
         assert_eq!(active.tags, vec!["development"]);
-        
+
         // Clear timer
         repo.clear_active_timer().await.unwrap();
-        
+
         let active = repo.get_active_timer().await.unwrap();
         assert!(active.is_none());
     }
@@ -801,14 +820,24 @@ mod tests {
         let repo = setup_repo().await;
         let project = Project::new("Test Project".to_string(), None);
         repo.create_project(&project).await.unwrap();
-        
-        assert_eq!(repo.count_time_entries_for_project(project.id).await.unwrap(), 0);
-        
+
+        assert_eq!(
+            repo.count_time_entries_for_project(project.id)
+                .await
+                .unwrap(),
+            0
+        );
+
         let entry1 = TimeEntry::new(project.id, project.name.clone(), None, Utc::now());
         let entry2 = TimeEntry::new(project.id, project.name.clone(), None, Utc::now());
         repo.create_time_entry(&entry1).await.unwrap();
         repo.create_time_entry(&entry2).await.unwrap();
-        
-        assert_eq!(repo.count_time_entries_for_project(project.id).await.unwrap(), 2);
+
+        assert_eq!(
+            repo.count_time_entries_for_project(project.id)
+                .await
+                .unwrap(),
+            2
+        );
     }
 }

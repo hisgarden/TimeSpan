@@ -19,6 +19,7 @@ tokio = { version = "1.0", features = ["full"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 async-trait = "0.1"
 git2 = "0.18"
+dirs = "5.0"
 
 [dev-dependencies]
 cucumber = "0.20"

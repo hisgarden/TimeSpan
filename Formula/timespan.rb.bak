@@ -2,7 +2,7 @@ class Timespan < Formula
   desc "Local time tracking application built with Rust"
   homepage "https://github.com/hisgarden/TimeSpan"
   url "https://github.com/hisgarden/TimeSpan/archive/refs/tags/v1.1.0.tar.gz"
-  sha256 "c636a9e032f7284a823d92284c2fa0c62bd45fd56e7b3db1080952ee9ab4e307"
+  sha256 "6d3b78460adf17b17c968434320ad26af368d96f209943df1edce7a25ce942c7"
   license "MIT"
 
   depends_on "rust" => :build

@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::repository::SqliteRepository;
-use crate::services::{ProjectService, TimeTrackingService, ReportingService, ClientDiscoveryService, GitService, DiscoveryOptions};
+use crate::services::{
+    ClientDiscoveryService, DiscoveryOptions, GitService, ProjectService, ReportingService,
+    TimeTrackingService,
+};
 use crate::Result;
 
 #[derive(Parser)]
@@ -13,7 +16,7 @@ use crate::Result;
 pub struct Cli {
     #[arg(long, global = true)]
     pub database: Option<PathBuf>,
-    
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -58,7 +61,7 @@ pub enum ProjectCommands {
         #[arg(long, default_value = "/Users/user/workspace/Clients")]
         path: String,
         /// Prefix to add to discovered project names
-        #[arg(long, default_value = "[CLIENT]")] 
+        #[arg(long, default_value = "[CLIENT]")]
         prefix: String,
         /// Preview mode - show what would be created without actually creating
         #[arg(long)]
@@ -106,54 +109,58 @@ pub enum GitCommands {
 /// Input validation and sanitization functions
 mod input_validation {
     use crate::{Result, TimeSpanError};
-    
+
     /// Maximum allowed length for project names and task descriptions
     const MAX_INPUT_LENGTH: usize = 500;
-    
+
     /// Validates and sanitizes project names
     pub fn validate_project_name(name: &str) -> Result<String> {
         let sanitized = sanitize_input(name)?;
-        
+
         if sanitized.trim().is_empty() {
-            return Err(TimeSpanError::InvalidInput("Project name cannot be empty".to_string()));
+            return Err(TimeSpanError::InvalidInput(
+                "Project name cannot be empty".to_string(),
+            ));
         }
-        
+
         if sanitized.len() > MAX_INPUT_LENGTH {
             return Err(TimeSpanError::InvalidInput(format!(
-                "Project name too long (max {} characters)", MAX_INPUT_LENGTH
+                "Project name too long (max {} characters)",
+                MAX_INPUT_LENGTH
             )));
         }
-        
+
         // Check for potentially dangerous patterns
         if contains_dangerous_patterns(&sanitized) {
             return Err(TimeSpanError::InvalidInput(
-                "Project name contains invalid characters or patterns".to_string()
+                "Project name contains invalid characters or patterns".to_string(),
             ));
         }
-        
+
         Ok(sanitized)
     }
-    
+
     /// Validates and sanitizes task descriptions (more permissive than project names)
     pub fn validate_task_description(description: &str) -> Result<String> {
         let sanitized = sanitize_input(description)?;
-        
+
         if sanitized.len() > MAX_INPUT_LENGTH {
             return Err(TimeSpanError::InvalidInput(format!(
-                "Task description too long (max {} characters)", MAX_INPUT_LENGTH
+                "Task description too long (max {} characters)",
+                MAX_INPUT_LENGTH
             )));
         }
-        
+
         // Task descriptions can be more permissive, but still check for command injection patterns
         if contains_command_injection_patterns(&sanitized) {
             return Err(TimeSpanError::InvalidInput(
-                "Task description contains potentially dangerous patterns".to_string()
+                "Task description contains potentially dangerous patterns".to_string(),
             ));
         }
-        
+
         Ok(sanitized)
     }
-    
+
     /// Basic input sanitization
     fn sanitize_input(input: &str) -> Result<String> {
         // Remove null bytes and other control characters
@@ -161,46 +168,70 @@ mod input_validation {
             .chars()
             .filter(|c| !c.is_control() || c.is_whitespace())
             .collect();
-        
+
         Ok(sanitized)
     }
-    
+
     /// Check for dangerous patterns that could indicate injection attempts
     fn contains_dangerous_patterns(input: &str) -> bool {
         let dangerous_patterns = [
-            "rm -rf", "rm -r", "del /", "rmdir",
-            "$((", "$(", "`", "&&", "||", ";",
-            "DROP TABLE", "DELETE FROM", "INSERT INTO", "UPDATE ",
-            "<script", "javascript:", "eval(", "exec(",
-            "/etc/passwd", "/etc/shadow", "../../", "..\\..\\" 
+            "rm -rf",
+            "rm -r",
+            "del /",
+            "rmdir",
+            "$((",
+            "$(",
+            "`",
+            "&&",
+            "||",
+            ";",
+            "DROP TABLE",
+            "DELETE FROM",
+            "INSERT INTO",
+            "UPDATE ",
+            "<script",
+            "javascript:",
+            "eval(",
+            "exec(",
+            "/etc/passwd",
+            "/etc/shadow",
+            "../../",
+            "..\\..\\",
         ];
-        
+
         let input_lower = input.to_lowercase();
-        dangerous_patterns.iter().any(|pattern| input_lower.contains(pattern))
+        dangerous_patterns
+            .iter()
+            .any(|pattern| input_lower.contains(pattern))
     }
-    
+
     /// Check for command injection patterns (subset for task descriptions)
     fn contains_command_injection_patterns(input: &str) -> bool {
         let command_patterns = [
-            "rm -rf", "rm -r", "del /", "rmdir",
-            "$((", "$(", "`", "exec(",
-            "/etc/passwd", "/etc/shadow",
+            "rm -rf",
+            "rm -r",
+            "del /",
+            "rmdir",
+            "$((",
+            "$(",
+            "`",
+            "exec(",
+            "/etc/passwd",
+            "/etc/shadow",
         ];
-        
+
         let input_lower = input.to_lowercase();
-        command_patterns.iter().any(|pattern| input_lower.contains(pattern))
+        command_patterns
+            .iter()
+            .any(|pattern| input_lower.contains(pattern))
     }
 }
 
 /// Sanitizes error messages to prevent information disclosure
 pub fn sanitize_error_message(error: &crate::TimeSpanError) -> String {
     match error {
-        crate::TimeSpanError::Database(_) => {
-            "Database operation failed".to_string()
-        }
-        crate::TimeSpanError::Io(_) => {
-            "File system operation failed".to_string()
-        }
+        crate::TimeSpanError::Database(_) => "Database operation failed".to_string(),
+        crate::TimeSpanError::Io(_) => "File system operation failed".to_string(),
         crate::TimeSpanError::InvalidInput(msg) => {
             // Input validation errors are safe to show
             msg.clone()
@@ -211,9 +242,7 @@ pub fn sanitize_error_message(error: &crate::TimeSpanError) -> String {
         crate::TimeSpanError::ProjectAlreadyExists(name) => {
             format!("Project '{}' already exists", name)
         }
-        crate::TimeSpanError::NoActiveTimer => {
-            "No active timer found".to_string()
-        }
+        crate::TimeSpanError::NoActiveTimer => "No active timer found".to_string(),
         crate::TimeSpanError::TimerAlreadyRunning(name) => {
             format!("Timer is already running for project: {}", name)
         }
@@ -237,13 +266,34 @@ pub struct TimeSpanApp {
 impl TimeSpanApp {
     pub fn new(database_path: Option<PathBuf>) -> Result<Self> {
         let db_path = database_path.unwrap_or_else(|| {
-            let mut path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            path.push("timespan.db");
-            path
+            // Use XDG Base Directory Specification
+            // Default to $HOME/.local/share/timespan/timespan.db
+            let data_dir = dirs::data_dir()
+                .map(|dir| dir.join("timespan"))
+                .unwrap_or_else(|| {
+                    // Fallback to $HOME/.timespan if data_dir is not available
+                    std::env::var("HOME")
+                        .map(|home| PathBuf::from(home).join(".timespan"))
+                        .unwrap_or_else(|_| PathBuf::from(".timespan"))
+                });
+
+            // Ensure the directory exists
+            if let Err(e) = std::fs::create_dir_all(&data_dir) {
+                eprintln!(
+                    "Warning: Could not create data directory {:?}: {}",
+                    data_dir, e
+                );
+                // Fallback to current directory if we can't create the data directory
+                let mut path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                path.push("timespan.db");
+                return path;
+            }
+
+            data_dir.join("timespan.db")
         });
-        
+
         let repository = Arc::new(SqliteRepository::new(&db_path)?);
-        
+
         Ok(Self {
             project_service: ProjectService::new(repository.clone()),
             tracking_service: TimeTrackingService::new(repository.clone()),
@@ -252,7 +302,7 @@ impl TimeSpanApp {
             git_service: GitService::new(repository),
         })
     }
-    
+
     pub async fn run(&self, cli: Cli) -> Result<()> {
         match cli.command {
             Commands::Start(args) => self.handle_start(args).await,
@@ -263,7 +313,7 @@ impl TimeSpanApp {
             Commands::Git { command } => self.handle_git(command).await,
         }
     }
-    
+
     async fn handle_start(&self, args: StartArgs) -> Result<()> {
         // Validate and sanitize inputs
         let project = input_validation::validate_project_name(&args.project)?;
@@ -272,8 +322,12 @@ impl TimeSpanApp {
         } else {
             None
         };
-        
-        match self.tracking_service.start_timer(&project, task.as_deref()).await {
+
+        match self
+            .tracking_service
+            .start_timer(&project, task.as_deref())
+            .await
+        {
             Ok(timer) => {
                 println!("Started tracking time for '{}'", timer.project_name);
                 Ok(())
@@ -284,14 +338,17 @@ impl TimeSpanApp {
             }
         }
     }
-    
+
     async fn handle_stop(&self) -> Result<()> {
         match self.tracking_service.stop_timer().await {
             Ok(entry) => {
                 let duration = entry.duration.unwrap();
                 let hours = duration.num_hours();
                 let minutes = duration.num_minutes() % 60;
-                println!("Stopped tracking time for '{}' ({}h {}m)", entry.project_name, hours, minutes);
+                println!(
+                    "Stopped tracking time for '{}' ({}h {}m)",
+                    entry.project_name, hours, minutes
+                );
                 Ok(())
             }
             Err(e) => {
@@ -300,13 +357,13 @@ impl TimeSpanApp {
             }
         }
     }
-    
+
     async fn handle_status(&self) -> Result<()> {
         let status = self.tracking_service.get_current_status().await?;
         println!("{}", status);
         Ok(())
     }
-    
+
     async fn handle_project(&self, command: ProjectCommands) -> Result<()> {
         match command {
             ProjectCommands::Create { name, description } => {
@@ -317,8 +374,12 @@ impl TimeSpanApp {
                 } else {
                     None
                 };
-                
-                match self.project_service.create_project(&validated_name, validated_description.as_deref()).await {
+
+                match self
+                    .project_service
+                    .create_project(&validated_name, validated_description.as_deref())
+                    .await
+                {
                     Ok(_) => {
                         println!("Created project '{}'", validated_name);
                         Ok(())
@@ -336,8 +397,13 @@ impl TimeSpanApp {
                 } else {
                     println!("Projects:");
                     for project in projects {
-                        let client_marker = if project.is_client_project { " 🏢" } else { "" };
-                        let path_info = project.directory_path
+                        let client_marker = if project.is_client_project {
+                            " 🏢"
+                        } else {
+                            ""
+                        };
+                        let path_info = project
+                            .directory_path
                             .as_deref()
                             .map(|p| format!(" ({})", p))
                             .unwrap_or_default();
@@ -346,54 +412,76 @@ impl TimeSpanApp {
                 }
                 Ok(())
             }
-            ProjectCommands::Discover { path, prefix, dry_run } => {
-                self.handle_project_discover(path, prefix, dry_run).await
-            }
-            ProjectCommands::Clients => {
-                self.handle_list_client_projects().await
-            }
+            ProjectCommands::Discover {
+                path,
+                prefix,
+                dry_run,
+            } => self.handle_project_discover(path, prefix, dry_run).await,
+            ProjectCommands::Clients => self.handle_list_client_projects().await,
         }
     }
-    
+
     async fn handle_report(&self, command: ReportCommands) -> Result<()> {
         match command {
             ReportCommands::Daily { json } => {
-                let report = self.reporting_service.generate_daily_report(chrono::Utc::now()).await?;
-                
+                let report = self
+                    .reporting_service
+                    .generate_daily_report(chrono::Utc::now())
+                    .await?;
+
                 if json {
                     let json_output = self.reporting_service.export_report_json(&report)?;
                     println!("{}", json_output);
                 } else {
                     let total_hours = report.total_duration.num_hours();
                     let total_minutes = report.total_duration.num_minutes() % 60;
-                    println!("Daily Report: Total time {}h {}m", total_hours, total_minutes);
+                    println!(
+                        "Daily Report: Total time {}h {}m",
+                        total_hours, total_minutes
+                    );
                 }
                 Ok(())
             }
         }
     }
-    
-    async fn handle_project_discover(&self, path: String, prefix: String, dry_run: bool) -> Result<()> {
+
+    async fn handle_project_discover(
+        &self,
+        path: String,
+        prefix: String,
+        dry_run: bool,
+    ) -> Result<()> {
         use std::path::PathBuf;
-        
+
         let options = DiscoveryOptions {
             base_path: PathBuf::from(path.clone()),
             exclude_patterns: DiscoveryOptions::default().exclude_patterns,
-            project_prefix: if prefix.is_empty() { None } else { Some(prefix) },
+            project_prefix: if prefix.is_empty() {
+                None
+            } else {
+                Some(prefix)
+            },
             dry_run,
         };
-        
+
         println!("🔍 Discovering client projects in: {}", path);
         if dry_run {
             println!("👀 Running in preview mode - no projects will be created");
         }
         println!();
-        
-        match self.client_discovery_service.discover_clients(&options).await {
+
+        match self
+            .client_discovery_service
+            .discover_clients(&options)
+            .await
+        {
             Ok(result) => {
                 // Show discovered directories
                 if !result.discovered_directories.is_empty() {
-                    println!("📁 Discovered {} directories:", result.discovered_directories.len());
+                    println!(
+                        "📁 Discovered {} directories:",
+                        result.discovered_directories.len()
+                    );
                     for dir in &result.discovered_directories {
                         let git_marker = if dir.is_git_repo { " 🔄" } else { "" };
                         println!("  • {}{}", dir.name, git_marker);
@@ -403,7 +491,7 @@ impl TimeSpanApp {
                     }
                     println!();
                 }
-                
+
                 // Show results
                 if !result.created_projects.is_empty() {
                     println!("✅ Created {} new projects:", result.created_projects.len());
@@ -412,23 +500,29 @@ impl TimeSpanApp {
                     }
                     println!();
                 }
-                
+
                 if !result.updated_projects.is_empty() {
-                    println!("🔄 Updated {} existing projects:", result.updated_projects.len());
+                    println!(
+                        "🔄 Updated {} existing projects:",
+                        result.updated_projects.len()
+                    );
                     for project in &result.updated_projects {
                         println!("  ~ {}", project.name);
                     }
                     println!();
                 }
-                
+
                 if !result.skipped_directories.is_empty() {
-                    println!("⏭️ Skipped {} directories:", result.skipped_directories.len());
+                    println!(
+                        "⏭️ Skipped {} directories:",
+                        result.skipped_directories.len()
+                    );
                     for skipped in &result.skipped_directories {
                         println!("  - {}", skipped);
                     }
                     println!();
                 }
-                
+
                 if !result.errors.is_empty() {
                     println!("❌ Errors encountered:");
                     for error in &result.errors {
@@ -436,7 +530,7 @@ impl TimeSpanApp {
                     }
                     println!();
                 }
-                
+
                 // Summary
                 if dry_run {
                     println!("👁️ Preview completed. Use without --dry-run to create projects.");
@@ -448,7 +542,7 @@ impl TimeSpanApp {
                         println!("✨ No new projects to create - everything is up to date!");
                     }
                 }
-                
+
                 Ok(())
             }
             Err(e) => {
@@ -457,7 +551,7 @@ impl TimeSpanApp {
             }
         }
     }
-    
+
     async fn handle_list_client_projects(&self) -> Result<()> {
         match self.client_discovery_service.list_client_projects().await {
             Ok(projects) => {
@@ -467,7 +561,8 @@ impl TimeSpanApp {
                 } else {
                     println!("🏢 Client Projects ({}):", projects.len());
                     for project in projects {
-                        let path_info = project.directory_path
+                        let path_info = project
+                            .directory_path
                             .as_deref()
                             .map(|p| format!(" → {}", p))
                             .unwrap_or_default();
@@ -480,7 +575,10 @@ impl TimeSpanApp {
                 Ok(())
             }
             Err(e) => {
-                eprintln!("❌ Failed to list client projects: {}", sanitize_error_message(&e));
+                eprintln!(
+                    "❌ Failed to list client projects: {}",
+                    sanitize_error_message(&e)
+                );
                 Err(e)
             }
         }
@@ -488,27 +586,29 @@ impl TimeSpanApp {
 
     async fn handle_git(&self, command: GitCommands) -> Result<()> {
         match command {
-            GitCommands::Analyze { days, repo } => {
-                self.handle_git_analyze(days, repo).await
-            }
-            GitCommands::Status => {
-                self.handle_git_status().await
-            }
-            GitCommands::Import { repo, days, project } => {
-                self.handle_git_import(repo, days, project).await
-            }
+            GitCommands::Analyze { days, repo } => self.handle_git_analyze(days, repo).await,
+            GitCommands::Status => self.handle_git_status().await,
+            GitCommands::Import {
+                repo,
+                days,
+                project,
+            } => self.handle_git_import(repo, days, project).await,
         }
     }
 
     async fn handle_git_analyze(&self, days: u32, repo_path: Option<PathBuf>) -> Result<()> {
         let path = repo_path.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-        
+
         println!("🔍 Analyzing git commits from: {}", path.display());
         println!("📅 Looking back {} days", days);
         println!();
 
         let since = chrono::Utc::now() - chrono::Duration::days(days as i64);
-        match self.git_service.get_commits(&path, Some(since), Some(20)).await {
+        match self
+            .git_service
+            .get_commits(&path, Some(since), Some(20))
+            .await
+        {
             Ok(commits) => {
                 if commits.is_empty() {
                     println!("📭 No commits found in the specified time range.");
@@ -525,29 +625,49 @@ impl TimeSpanApp {
                     let analysis = self.git_service.analyze_commit(commit).await?;
                     let hours = analysis.estimated_duration.num_hours();
                     let minutes = analysis.estimated_duration.num_minutes() % 60;
-                    
-                    println!("📝 {} ({}h {}m)", 
+
+                    println!(
+                        "📝 {} ({}h {}m)",
                         commit.hash.chars().take(8).collect::<String>(),
-                        hours, minutes);
-                    println!("   {} by {}", commit.message.lines().next().unwrap_or(""), commit.author);
-                    println!("   {} files, +{} -{} lines", 
-                        commit.files_changed.len(), commit.insertions, commit.deletions);
-                    println!("   Type: {:?}, Confidence: {:.1}%", 
-                        analysis.commit_type, analysis.complexity_score * 100.0);
+                        hours,
+                        minutes
+                    );
+                    println!(
+                        "   {} by {}",
+                        commit.message.lines().next().unwrap_or(""),
+                        commit.author
+                    );
+                    println!(
+                        "   {} files, +{} -{} lines",
+                        commit.files_changed.len(),
+                        commit.insertions,
+                        commit.deletions
+                    );
+                    println!(
+                        "   Type: {:?}, Confidence: {:.1}%",
+                        analysis.commit_type,
+                        analysis.complexity_score * 100.0
+                    );
                     println!();
 
-                    total_estimated_time = total_estimated_time + analysis.estimated_duration;
+                    total_estimated_time += analysis.estimated_duration;
                     *commit_types.entry(analysis.commit_type).or_insert(0) += 1;
                 }
 
                 let total_hours = total_estimated_time.num_hours();
                 let total_minutes = total_estimated_time.num_minutes() % 60;
-                
+
                 println!("📈 Summary:");
-                println!("   Total estimated time: {}h {}m", total_hours, total_minutes);
-                println!("   Average per commit: {}m", total_estimated_time.num_minutes() / commits.len() as i64);
+                println!(
+                    "   Total estimated time: {}h {}m",
+                    total_hours, total_minutes
+                );
+                println!(
+                    "   Average per commit: {}m",
+                    total_estimated_time.num_minutes() / commits.len() as i64
+                );
                 println!("   Commit types: {:?}", commit_types);
-                
+
                 // Try to detect associated project
                 if let Ok(Some(project_name)) = self.git_service.detect_project(&path).await {
                     println!("   Detected project: {}", project_name);
@@ -556,7 +676,10 @@ impl TimeSpanApp {
                 Ok(())
             }
             Err(e) => {
-                eprintln!("❌ Failed to analyze commits: {}", sanitize_error_message(&e));
+                eprintln!(
+                    "❌ Failed to analyze commits: {}",
+                    sanitize_error_message(&e)
+                );
                 Err(e)
             }
         }
@@ -572,7 +695,7 @@ impl TimeSpanApp {
             Ok(repo) => {
                 println!("✅ Current directory is a git repository");
                 println!("   Path: {}", current_dir.display());
-                
+
                 // Get remote info if available
                 if let Ok(remote) = repo.find_remote("origin") {
                     if let Some(url) = remote.url() {
@@ -595,9 +718,16 @@ impl TimeSpanApp {
                 }
 
                 // Show recent commit activity
-                match self.git_service.get_recent_commits_from_current_dir(7).await {
+                match self
+                    .git_service
+                    .get_recent_commits_from_current_dir(7)
+                    .await
+                {
                     Ok(commits) => {
-                        println!("   Recent activity: {} commits in last 7 days", commits.len());
+                        println!(
+                            "   Recent activity: {} commits in last 7 days",
+                            commits.len()
+                        );
                     }
                     Err(_) => {
                         println!("   Recent activity: Unable to read commits");
@@ -614,17 +744,22 @@ impl TimeSpanApp {
         println!("Available commands:");
         println!("   timespan git analyze     # Analyze recent commits");
         println!("   timespan git import      # Import commits as time entries");
-        
+
         Ok(())
     }
 
-    async fn handle_git_import(&self, repo_path: Option<PathBuf>, days: u32, project_name: Option<String>) -> Result<()> {
+    async fn handle_git_import(
+        &self,
+        repo_path: Option<PathBuf>,
+        days: u32,
+        project_name: Option<String>,
+    ) -> Result<()> {
         let path = repo_path.unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
-        
+
         println!("📥 Importing git commits to TimeSpan");
         println!("   Repository: {}", path.display());
         println!("   Days back: {}", days);
-        
+
         // Detect or use provided project
         let project_name = if let Some(name) = project_name {
             name
@@ -644,7 +779,12 @@ impl TimeSpanApp {
             Some(project) => project,
             None => {
                 println!("📝 Creating new project: {}", project_name);
-                self.project_service.create_project(&project_name, Some(&format!("Auto-created from git import: {}", path.display()))).await?
+                self.project_service
+                    .create_project(
+                        &project_name,
+                        Some(&format!("Auto-created from git import: {}", path.display())),
+                    )
+                    .await?
             }
         };
 
@@ -652,7 +792,10 @@ impl TimeSpanApp {
         println!();
 
         let since = chrono::Utc::now() - chrono::Duration::days(days as i64);
-        let commits = self.git_service.get_commits(&path, Some(since), Some(50)).await?;
+        let commits = self
+            .git_service
+            .get_commits(&path, Some(since), Some(50))
+            .await?;
 
         if commits.is_empty() {
             println!("📭 No commits found in the specified time range.");
@@ -665,43 +808,61 @@ impl TimeSpanApp {
 
         for commit in &commits {
             let analysis = self.git_service.analyze_commit(commit).await?;
-            let git_time_entry = self.git_service.create_git_time_entry(&analysis, &project).await?;
-            
+            let git_time_entry = self
+                .git_service
+                .create_git_time_entry(&analysis, &project)
+                .await?;
+
             // Convert to regular time entry
             let mut time_entry = crate::models::TimeEntry::new(
                 project.id,
                 project.name.clone(),
-                Some(format!("Git: {}", commit.message.lines().next().unwrap_or("No message"))),
+                Some(format!(
+                    "Git: {}",
+                    commit.message.lines().next().unwrap_or("No message")
+                )),
                 commit.timestamp,
             );
-            
+
             // Set the estimated time as the duration
             time_entry.stop(commit.timestamp + git_time_entry.estimated_time)?;
             time_entry.add_tag("git-import".to_string());
-            time_entry.add_tag(format!("commit-{}", commit.hash.chars().take(8).collect::<String>()));
-            
+            time_entry.add_tag(format!(
+                "commit-{}",
+                commit.hash.chars().take(8).collect::<String>()
+            ));
+
             // Save to database (you would need to add this to repository trait)
             // For now, we'll just print what we would do
             let hours = git_time_entry.estimated_time.num_hours();
             let minutes = git_time_entry.estimated_time.num_minutes() % 60;
-            
-            println!("   ✅ {} - {}h {}m", 
+
+            println!(
+                "   ✅ {} - {}h {}m",
                 commit.hash.chars().take(8).collect::<String>(),
-                hours, minutes);
-            
-            total_time = total_time + git_time_entry.estimated_time;
+                hours,
+                minutes
+            );
+
+            total_time += git_time_entry.estimated_time;
             imported_count += 1;
         }
 
         let total_hours = total_time.num_hours();
         let total_minutes = total_time.num_minutes() % 60;
-        
+
         println!();
         println!("🎉 Import completed!");
         println!("   Commits processed: {}", imported_count);
-        println!("   Total estimated time: {}h {}m", total_hours, total_minutes);
-        println!("   Average per commit: {}m", total_time.num_minutes() / imported_count);
-        
+        println!(
+            "   Total estimated time: {}h {}m",
+            total_hours, total_minutes
+        );
+        println!(
+            "   Average per commit: {}m",
+            total_time.num_minutes() / imported_count
+        );
+
         Ok(())
     }
 }
