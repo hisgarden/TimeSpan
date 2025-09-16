@@ -85,7 +85,7 @@ mod security_tests {
             // 2. Sanitize it to be within allowed bounds
             // 3. Create a file only within the temp directory
             
-            if let Ok(repository) = SqliteRepository::new(&test_path) {
+            if let Ok(_repository) = SqliteRepository::new(&test_path) {
                 // If it succeeds, verify the file is created in a safe location
                 let created_files: Vec<_> = std::fs::read_dir(temp_dir.path())?
                     .filter_map(|entry| entry.ok())
@@ -360,7 +360,7 @@ mod security_tests {
             }
             Err(error) => {
                 // Test our sanitization function
-                use crate::cli::sanitize_error_message;
+                
                 let sanitized = crate::cli::sanitize_error_message(&error);
                 
                 // Sanitized error messages should not contain:

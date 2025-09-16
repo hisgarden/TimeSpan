@@ -41,7 +41,7 @@ pub struct ClientDirectory {
 impl Default for DiscoveryOptions {
     fn default() -> Self {
         Self {
-            base_path: PathBuf::from("/Users/jwen/workspace/Clients"),
+            base_path: PathBuf::from("/Users/user/workspace/Clients"),
             exclude_patterns: vec![
                 ".DS_Store".to_string(),
                 ".git".to_string(),
@@ -182,7 +182,7 @@ impl ClientDiscoveryService {
 
         // Add client type hint based on name patterns
         if name.starts_with("NNL_") {
-            parts.push("Nok Nok Labs internal project");
+            parts.push("Example Corp internal project");
         } else if name.contains("Release") {
             parts.push("Product release work");
         } else {
@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn test_default_options() {
         let options = DiscoveryOptions::default();
-        assert_eq!(options.base_path, PathBuf::from("/Users/jwen/workspace/Clients"));
+        assert_eq!(options.base_path, PathBuf::from("/Users/user/workspace/Clients"));
         assert!(options.exclude_patterns.contains(&".DS_Store".to_string()));
         assert_eq!(options.project_prefix, Some("[CLIENT]".to_string()));
     }

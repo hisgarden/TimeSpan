@@ -4,7 +4,7 @@
 
 set -e
 
-VERSION=${1:-"v1.0.2"}
+VERSION=${1:-"v1.1.0"}
 REPO_URL="https://github.com/hisgarden/TimeSpan"
 
 echo "🚀 Preparing Homebrew release for TimeSpan $VERSION"
@@ -42,9 +42,10 @@ rsync -av \
 # Create the archive
 cd "$TEMP_DIR"
 tar -czf "$ARCHIVE_NAME" "TimeSpan-${VERSION#v}"
-mv "$ARCHIVE_NAME" -
+mv "$ARCHIVE_NAME" "$OLDPWD/"
 
 # Calculate SHA256
+cd "$OLDPWD"
 SHA256=$(shasum -a 256 "$ARCHIVE_NAME" | cut -d' ' -f1)
 
 echo "✅ Archive created: $ARCHIVE_NAME"
@@ -71,7 +72,7 @@ echo "3. Test the installation:"
 echo "   brew install --build-from-source Formula/timespan.rb"
 echo ""
 echo "4. For public tap, users can install with:"
-echo "   brew tap jwen/timespan"
+echo "   brew tap user/timespan"
 echo "   brew install timespan"
 
 # Clean up

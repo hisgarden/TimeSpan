@@ -55,7 +55,7 @@ pub enum ProjectCommands {
     /// Discover projects from client directories
     Discover {
         /// Base path to scan for client directories
-        #[arg(long, default_value = "/Users/jwen/workspace/Clients")]
+        #[arg(long, default_value = "/Users/user/workspace/Clients")]
         path: String,
         /// Prefix to add to discovered project names
         #[arg(long, default_value = "[CLIENT]")] 

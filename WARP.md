@@ -55,7 +55,7 @@ cargo test services::tests        # Run service tests
 ./target/release/timespan report daily --json
 
 # Client project discovery
-./target/release/timespan project discover --path /Users/jwen/workspace/Clients --dry-run
+./target/release/timespan project discover --path /Users/user/workspace/Clients --dry-run
 ./target/release/timespan project clients
 ```
 

@@ -326,7 +326,7 @@ mod tests {
     use crate::repository::SqliteRepository;
     use std::sync::Arc;
     use std::path::PathBuf;
-    use tempfile::TempDir;
+    
 
     async fn setup_git_service() -> GitService {
         let repo = Arc::new(SqliteRepository::in_memory().unwrap());
