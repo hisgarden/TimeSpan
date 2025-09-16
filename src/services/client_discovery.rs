@@ -45,6 +45,7 @@ impl Default for DiscoveryOptions {
             exclude_patterns: vec![
                 ".DS_Store".to_string(),
                 ".git".to_string(),
+                ".*".to_string(), // Exclude all hidden directories/files
                 "*.pdf".to_string(),
                 "*.mp4".to_string(),
                 "*.zip".to_string(),
@@ -53,6 +54,16 @@ impl Default for DiscoveryOptions {
                 "*.mht".to_string(),
                 "*.pages".to_string(),
                 "*.md".to_string(),
+                // Common IDE/editor directories
+                ".vscode".to_string(),
+                ".idea".to_string(),
+                ".claude".to_string(),
+                ".cursor".to_string(),
+                ".vscode-insiders".to_string(),
+                ".atom".to_string(),
+                ".sublime-text".to_string(),
+                ".vim".to_string(),
+                ".emacs.d".to_string(),
             ],
             project_prefix: Some("[CLIENT]".to_string()),
             dry_run: false,
@@ -144,7 +155,12 @@ impl ClientDiscoveryService {
 
     fn should_exclude(&self, name: &str, exclude_patterns: &[String]) -> bool {
         for pattern in exclude_patterns {
-            if pattern.contains('*') {
+            if pattern == ".*" {
+                // Exclude all hidden files/directories (starting with .)
+                if name.starts_with('.') {
+                    return true;
+                }
+            } else if pattern.contains('*') {
                 // Simple wildcard matching
                 if pattern.starts_with('*') && name.ends_with(&pattern[1..]) {
                     return true;
@@ -283,6 +299,23 @@ mod tests {
         assert!(service.should_exclude("document.pdf", &exclude_patterns));
         assert!(service.should_exclude(".DS_Store", &exclude_patterns));
         assert!(!service.should_exclude("ValidClient", &exclude_patterns));
+    }
+
+    #[tokio::test]
+    async fn test_hidden_directory_exclusion() {
+        let service = setup_service().await;
+        let exclude_patterns = vec![".*".to_string()];
+
+        // Test that hidden directories are excluded
+        assert!(service.should_exclude(".claude", &exclude_patterns));
+        assert!(service.should_exclude(".cursor", &exclude_patterns));
+        assert!(service.should_exclude(".vscode", &exclude_patterns));
+        assert!(service.should_exclude(".git", &exclude_patterns));
+        assert!(service.should_exclude(".idea", &exclude_patterns));
+        
+        // Test that non-hidden directories are not excluded
+        assert!(!service.should_exclude("ValidClient", &exclude_patterns));
+        assert!(!service.should_exclude("MyProject", &exclude_patterns));
     }
 
     #[test]
