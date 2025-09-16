@@ -22,6 +22,7 @@ TimeSpan is a powerful, privacy-first time tracking application designed for dev
 - **Task Descriptions**: Add context to your work sessions
 - **Status Monitoring**: Always know what you're working on
 - **Local Data**: Everything stored securely on your machine
+- **Centralized Database**: All data stored in XDG-compliant location (`~/.local/share/timespan/` on Linux, `~/Library/Application Support/timespan/` on macOS)
 
 ### 📊 **Detailed Reporting**
 - **Daily Reports**: See your daily work breakdown
@@ -48,6 +49,26 @@ brew tap hisgarden/timespan && brew install timespan
 ```
 
 That's it! TimeSpan is ready to use with full Git integration.
+
+## 🗄️ Database Location
+
+TimeSpan stores all your data in a centralized location following the XDG Base Directory Specification:
+
+- **macOS**: `~/Library/Application Support/timespan/timespan.db`
+- **Linux**: `~/.local/share/timespan/timespan.db`
+- **Windows**: `%APPDATA%/timespan/timespan.db`
+
+### Custom Database Location
+
+You can specify a custom database location using the `--database` flag:
+
+```bash
+# Use a custom database file
+timespan --database /path/to/custom.db project list
+
+# Use a project-specific database
+timespan --database ./project.db start "My Project"
+```
 
 <details>
 <summary>🔧 Alternative Installation Methods</summary>
